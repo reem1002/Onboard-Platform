@@ -1,0 +1,80 @@
+const env = require('../../config/env');
+
+/**
+ * Model providers behind one interface:
+ *   complete({ system, prompt, schema, name, temperature }) → parsed JSON object that matches `schema`
+ * - local:  Ollama on this machine (free, data never leaves the server). Structured output via `format: <JSON schema>`.
+ * - claude: Anthropic API (paid, strongest). Structured output via a forced tool call.
+ */
+function ollamaProvider({ model, numCtx = 8192, timeoutMs = 15 * 60 * 1000 }) {
+  const base = env.OLLAMA_URL.replace(/\/$/, '');
+  return {
+    id: 'local',
+    model,
+    async complete({ system, prompt, schema, temperature = 0.2 }) {
+      let res;
+      try {
+        res = await fetch(`${base}/api/chat`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          signal: AbortSignal.timeout(timeoutMs),
+          body: JSON.stringify({
+            model,
+            stream: false,
+            format: schema,
+            keep_alive: '10m',
+            options: { temperature, num_ctx: numCtx },
+            messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+          }),
+        });
+      } catch (e) {
+        throw new Error(e.name === 'TimeoutError' ? 'Local AI took too long (timeout)' : `Local AI (Ollama) is not reachable at ${base} — is it running?`);
+      }
+      if (res.status === 404) throw new Error(`Model "${model}" is not installed — run: ollama pull ${model}`);
+      if (!res.ok) throw new Error(`Local AI error ${res.status}: ${(await res.text()).slice(0, 200)}`);
+      const data = await res.json();
+      try {
+        return JSON.parse(data.message?.content || '');
+      } catch {
+        throw new Error('Local AI returned invalid JSON');
+      }
+    },
+  };
+}
+
+function claudeProvider({ model = env.AI_MODEL } = {}) {
+  let client;
+  return {
+    id: 'claude',
+    model,
+    async complete({ system, prompt, schema, name = 'result', temperature = 0.2 }) {
+      if (!client) {
+        const Anthropic = require('@anthropic-ai/sdk');
+        client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+      }
+      const r = await client.messages.create({
+        model, max_tokens: 3000, temperature, system,
+        tools: [{ name, description: 'Return the result.', input_schema: schema }],
+        tool_choice: { type: 'tool', name },
+        messages: [{ role: 'user', content: prompt }],
+      });
+      const block = r.content.find((b) => b.type === 'tool_use');
+      if (!block) throw new Error('Model did not return a result');
+      return block.input;
+    },
+  };
+}
+
+/** Installed local models + reachability (for the settings page). */
+async function ollamaStatus() {
+  try {
+    const r = await fetch(`${env.OLLAMA_URL.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return { reachable: false, models: [] };
+    const d = await r.json();
+    return { reachable: true, models: (d.models || []).map((m) => ({ name: m.name, sizeGB: Math.round((m.size / 1e9) * 10) / 10 })) };
+  } catch {
+    return { reachable: false, models: [] };
+  }
+}
+
+module.exports = { ollamaProvider, claudeProvider, ollamaStatus };

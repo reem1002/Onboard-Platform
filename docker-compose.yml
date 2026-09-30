@@ -1,0 +1,21 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes: [mongo-data:/data/db]
+    # not exposed publicly – only the API talks to it
+
+  api:
+    build: ./server
+    restart: unless-stopped
+    env_file: ./server/.env
+    environment:
+      MONGO_URI: mongodb://mongo:27017/lms
+      NODE_ENV: production
+    volumes: [uploads:/app/uploads]
+    depends_on: [mongo]
+    ports: ["4000:4000"]
+
+volumes:
+  mongo-data:
+  uploads:
