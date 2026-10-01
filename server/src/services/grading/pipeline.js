@@ -140,6 +140,21 @@ Grade ONLY the criterion "${criterion.criterion}". Return JSON with evidence, sc
   };
 }
 
+/** Repeated lines/paragraphs (copied blocks, OCR of the same screen twice) make small models loop — keep one copy. */
+function dedupeText(text) {
+  const seen = new Set();
+  const out = [];
+  for (const line of String(text || '').split('\n')) {
+    const key = line.trim().toLowerCase().replace(/\s+/g, ' ');
+    if (key.length > 25) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+    }
+    out.push(line);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
 async function writeFeedback({ provider, assignment, studentName, criteria }) {
   const rows = criteria.map((c) => `- ${c.criterion} (weight ${c.weight}%): ${c.score}/100 — ${c.comment}${c.evidence.length ? `\n    evidence: ${c.evidence.map((e) => `"${e}"`).join(' | ')}` : ''}`).join('\n');
   const prompt = `STUDENT: ${studentName}
@@ -160,7 +175,19 @@ Write the feedback sheet: overview (one sentence starting "${studentName}'s ${as
  */
 async function runPipeline({ provider, assignment, studentName, text, examples = [], runs = 1, precheckFlags = [], budget = 14000 }) {
   const criteria = [];
-  for (const c of assignment.rubric) criteria.push(await gradeCriterion({ provider, assignment, criterion: c, text, examples, runs, budget }));
+  const clean = dedupeText(text);
+  let lastErr;
+  for (const c of assignment.rubric) {
+    try {
+      criteria.push(await gradeCriterion({ provider, assignment, criterion: c, text: clean, examples, runs, budget }));
+    } catch (e) {
+      if (!e.retryable) throw e; // AI down / model missing → the whole draft fails clearly
+      // One criterion the model can't handle shouldn't sink the whole draft: leave it for the instructor
+      lastErr = e;
+      criteria.push({ criterionId: c._id, criterion: c.criterion, weight: c.weight, score: 0, comment: 'The AI could not grade this criterion — please score it yourself.', evidence: [], unverifiedEvidence: 0, spread: 0, failed: true });
+    }
+  }
+  if (criteria.every((c) => c.failed)) throw lastErr;
 
   const flags = [];
   const unsupported = criteria.filter((c) => c.score >= 50 && c.evidence.length === 0);
@@ -169,7 +196,22 @@ async function runPipeline({ provider, assignment, studentName, text, examples =
   const maxSpread = Math.max(0, ...criteria.map((c) => c.spread));
   if (runs > 1 && maxSpread > 15) flags.push('inconsistent_runs');
 
-  const feedback = await writeFeedback({ provider, assignment, studentName, criteria });
+  if (criteria.some((c) => c.failed)) flags.push('criterion_failed');
+  let feedback;
+  try {
+    feedback = await writeFeedback({ provider, assignment, studentName, criteria: criteria.filter((c) => !c.failed) });
+  } catch (e) {
+    if (!e.retryable) throw e;
+    // Scores are still useful without the prose — the instructor writes the feedback
+    const ranked = criteria.filter((c) => !c.failed).sort((a, b) => b.score - a.score);
+    feedback = {
+      overview: `${studentName}'s ${assignment.code} submission earned {{TOTAL}}/100.`,
+      strengths: ranked.slice(0, 2).map((c) => ({ task: c.criterion, detail: c.comment })),
+      improvements: ranked.slice(-2).reverse().map((c) => ({ task: c.criterion, issue: c.comment, suggestion: '' })),
+      closing: '',
+    };
+    flags.push('feedback_not_written');
+  }
 
   const serious = precheckFlags.some((f) => f.severity === 'high');
   let confidence = 'high';
@@ -179,4 +221,5 @@ async function runPipeline({ provider, assignment, studentName, text, examples =
   return { criteria, feedback, confidence, flags };
 }
 
-module.exports = { runPipeline, relevantText, CRITERION_SCHEMA, FEEDBACK_SCHEMA };
+module.exports = {
+  dedupeText, runPipeline, relevantText, CRITERION_SCHEMA, FEEDBACK_SCHEMA };

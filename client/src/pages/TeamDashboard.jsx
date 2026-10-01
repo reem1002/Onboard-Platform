@@ -47,7 +47,7 @@ export default function TeamDashboard() {
 
   return (
     <div className="page">
-      {companyId && <Link to="/admin/companies" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> Companies</Link>}
+      {companyId && <Link to="/admin/companies" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> {t('Companies')}</Link>}
       <div className="page-head">
         <div>
           <h1>{data.company ? t('{name} — team progress', { name: data.company.name }) : t('Team progress')}</h1>
@@ -67,40 +67,40 @@ export default function TeamDashboard() {
       </div>
 
       <div className="row" style={{ marginBottom: 'var(--sp-3)' }}>
-        <input className="input" style={{ maxWidth: 320 }} placeholder="Search by name, email or department" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search employees" />
-        <select className="select" style={{ width: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter">
-          <option value="all">Everyone</option>
-          <option value="overdue">Overdue</option>
-          <option value="notstarted">Not started</option>
-          <option value="review">Has work waiting for grading</option>
-          <option value="unassigned">No course assigned</option>
+        <input className="input" style={{ maxWidth: 320 }} placeholder={t('Search by name, email or department')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search employees')} />
+        <select className="select" style={{ width: 'auto' }} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('Filter')}>
+          <option value="all">{t('Everyone')}</option>
+          <option value="overdue">{t('Overdue')}</option>
+          <option value="notstarted">{t('Not started')}</option>
+          <option value="review">{t('Has work waiting for grading')}</option>
+          <option value="unassigned">{t('No course assigned')}</option>
         </select>
       </div>
 
       {!rows.length ? (
-        <div className="card empty"><p>No employees match this view.</p></div>
+        <div className="card empty"><p>{t('No employees match this view.')}</p></div>
       ) : (
         <div className="card card-flush">
           <table className="table">
-            <thead><tr><th>Employee</th><th>Course</th><th style={{ width: '22%' }}>Progress</th><th>Avg score</th><th>Due</th><th>Last sign-in</th><th /></tr></thead>
+            <thead><tr><th>{t('Employee')}</th><th>{t('Course')}</th><th style={{ width: '22%' }}>{t('Progress')}</th><th>{t('Avg score')}</th><th>{t('Due')}</th><th>{t('Last sign-in')}</th><th /></tr></thead>
             <tbody>
               {rows.map(({ emp, c }, i) => (
                 <tr key={`${emp._id}-${c?.courseId || i}`}>
                   <td data-label="Employee"><strong>{emp.name}</strong><div className="small muted">{emp.department || emp.email}</div></td>
-                  <td data-label="Course">{c ? c.code : <span className="muted">Not assigned</span>}</td>
+                  <td data-label="Course">{c ? c.code : <span className="muted">{t('Not assigned')}</span>}</td>
                   <td data-label="Progress">
                     {c ? (
                       <div style={{ flex: 1 }}>
-                        <div className="row small" style={{ flexWrap: 'nowrap' }}><span>{c.approved}/{c.total} graded</span><span className="spacer" /><strong>{c.percent}%</strong></div>
+                        <div className="row small" style={{ flexWrap: 'nowrap' }}><span>{t('{a}/{b} graded', { a: c.approved, b: c.total })}</span><span className="spacer" /><strong>{c.percent}%</strong></div>
                         <Progress value={c.percent} ok={c.percent === 100} />
-                        {c.pendingReview > 0 && <div className="small muted" style={{ marginTop: 4 }}>{c.pendingReview} waiting for grading</div>}
+                        {c.pendingReview > 0 && <div className="small muted" style={{ marginTop: 4 }}>{t('{n} waiting for grading', { n: c.pendingReview })}</div>}
                       </div>
                     ) : '—'}
                   </td>
                   <td data-label="Avg score">{c?.avgScore ?? '—'}</td>
                   <td data-label="Due">{c?.dueAt ? <span style={{ color: c.overdue ? 'var(--warning)' : undefined, fontWeight: c.overdue ? 600 : 400 }}>{fmtDate(c.dueAt)}{c.overdue && ' (overdue)'}</span> : '—'}</td>
                   <td data-label="Last sign-in" className="muted">{emp.lastLoginAt ? fmtDate(emp.lastLoginAt) : 'Never'}</td>
-                  <td><div className="row" style={{ justifyContent: 'flex-end' }}>{c && <Link className="btn btn-sm" to={`/reports?student=${emp._id}&course=${c.courseId}`}><FileText size={14} /> Report</Link>}{isAdmin && <ResetPasswordButton user={emp} />}</div></td>
+                  <td><div className="row" style={{ justifyContent: 'flex-end' }}>{c && <Link className="btn btn-sm" to={`/reports?student=${emp._id}&course=${c.courseId}`}><FileText size={14} /> {t('Report')}</Link>}{isAdmin && <ResetPasswordButton user={emp} />}</div></td>
                 </tr>
               ))}
             </tbody>

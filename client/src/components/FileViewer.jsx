@@ -105,7 +105,7 @@ export default function FileViewer({ files, source, initial = 0, onClose, height
         ) : state.kind === 'image' ? (
           <div className="viewer-img"><img src={state.url} alt={file.originalName} /></div>
         ) : state.kind === 'html' ? (
-          <iframe title={file.originalName} sandbox="" srcDoc={`<!doctype html><meta charset="utf-8"><style>${DOC_CSS}</style>${state.html || '<p><em>This document is empty.</em></p>'}`} className="viewer-frame doc" />
+          <iframe title={file.originalName} sandbox="" srcDoc={`<!doctype html><meta charset="utf-8"><style>${DOC_CSS}</style>${state.html || `<p><em>${t('This document is empty.')}</em></p>`}`} className="viewer-frame doc" />
         ) : state.kind === 'text' ? (
           csv ? (
             <div className="viewer-text"><table className="viewer-csv"><tbody>{csv.map((r, i) => <tr key={i}>{r.map((c, j) => (i === 0 ? <th key={j}>{c}</th> : <td key={j}>{c}</td>))}</tr>)}</tbody></table>{csv.length > 500 && <p className="small muted">{t('Showing the first 500 rows — download for the rest.')}</p>}</div>

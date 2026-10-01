@@ -5,6 +5,7 @@ import { useFetch } from '../api/useFetch';
 import { api, errorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Loader, ErrorBox, fmtDate } from '../components/ui';
+import { useT } from '../lib/i18n';
 
 export const TICKET_STATUS = {
   open: ['Waiting for support', 'chip-warn'],
@@ -18,6 +19,7 @@ const CATEGORIES = [
 ];
 
 function NewTicket({ onCancel }) {
+  const t = useT();
   const { user } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
@@ -57,55 +59,56 @@ function NewTicket({ onCancel }) {
 
   return (
     <form className="card stack" onSubmit={submit} style={{ marginBottom: 'var(--sp-4)' }}>
-      <h3>New request</h3>
+      <h3>{t('New request')}</h3>
       <ErrorBox>{err}</ErrorBox>
       {isEmployee && (
         <fieldset className="choice-row">
           <legend className="sr-only">Who should answer?</legend>
           <label className={`choice ${f.channel === 'course' ? 'on' : ''}`}>
             <input type="radio" name="ch" checked={f.channel === 'course'} onChange={() => setF({ ...f, channel: 'course' })} />
-            <strong>Ask my instructor</strong><span className="small muted">Questions about course content, assignments or your grade</span>
+            <strong>{t('Ask my instructor')}</strong><span className="small muted">{t('Questions about course content, assignments or your grade')}</span>
           </label>
           <label className={`choice ${f.channel === 'platform' ? 'on' : ''}`}>
             <input type="radio" name="ch" checked={f.channel === 'platform'} onChange={() => setF({ ...f, channel: 'platform' })} />
-            <strong>Platform support</strong><span className="small muted">Login, labs, uploads or anything technical</span>
+            <strong>{t('Platform support')}</strong><span className="small muted">{t('Login, labs, uploads or anything technical')}</span>
           </label>
         </fieldset>
       )}
       <div className="grid-form">
         {f.channel === 'course' && (
           <div className="field">
-            <label htmlFor="tc">Course</label>
+            <label htmlFor="tc">{t('Course')}</label>
             <select id="tc" className="select" required value={f.courseId} onChange={(e) => setF({ ...f, courseId: e.target.value })}>
-              <option value="">Choose a course…</option>
+              <option value="">{t('Choose a course…')}</option>
               {courses.data?.courses?.map((c) => <option key={c._id} value={c._id}>{c.code} — {c.title}</option>)}
             </select>
           </div>
         )}
         <div className="field">
-          <label htmlFor="tcat">Topic</label>
+          <label htmlFor="tcat">{t('Topic')}</label>
           <select id="tcat" className="select" value={f.category} onChange={(e) => setF({ ...f, category: e.target.value })}>
-            {CATEGORIES.filter(([k]) => (f.channel === 'course' ? !['billing', 'account'].includes(k) : true)).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+            {CATEGORIES.filter(([k]) => (f.channel === 'course' ? !['billing', 'account'].includes(k) : true)).map(([k, l]) => <option key={k} value={k}>{t(l)}</option>)}
           </select>
         </div>
         <div className="field">
-          <label htmlFor="tp">Urgency</label>
+          <label htmlFor="tp">{t('Urgency')}</label>
           <select id="tp" className="select" value={f.priority} onChange={(e) => setF({ ...f, priority: e.target.value })}>
-            <option value="low">Low — whenever you can</option>
-            <option value="normal">Normal</option>
-            <option value="high">High — it’s blocking my work</option>
-            <option value="urgent">Urgent</option>
+            <option value="low">{t('Low — whenever you can')}</option>
+            <option value="normal">{t('Normal')}</option>
+            <option value="high">{t('High — it’s blocking my work')}</option>
+            <option value="urgent">{t('Urgent')}</option>
           </select>
         </div>
       </div>
-      <div className="field"><label htmlFor="ts">Subject</label><input id="ts" className="input" required minLength={3} maxLength={200} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder="e.g. Can’t filter Level 12+ alerts in W-01 Task 3" /></div>
-      <div className="field"><label htmlFor="tb">Details</label><textarea id="tb" className="textarea" style={{ minHeight: 140 }} required maxLength={5000} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder="What were you trying to do, what happened, and what have you tried?" /></div>
-      <div className="row"><span className="spacer" /><button type="button" className="btn" onClick={onCancel}>Cancel</button><button className="btn btn-primary" disabled={busy}>Send request</button></div>
+      <div className="field"><label htmlFor="ts">{t('Subject')}</label><input id="ts" className="input" required minLength={3} maxLength={200} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })} placeholder={t('e.g. Can’t filter Level 12+ alerts in W-01 Task 3')} /></div>
+      <div className="field"><label htmlFor="tb">{t('Details')}</label><textarea id="tb" className="textarea" style={{ minHeight: 140 }} required maxLength={5000} value={f.body} onChange={(e) => setF({ ...f, body: e.target.value })} placeholder={t('What were you trying to do, what happened, and what have you tried?')} /></div>
+      <div className="row"><span className="spacer" /><button type="button" className="btn" onClick={onCancel}>{t('Cancel')}</button><button className="btn btn-primary" disabled={busy}>{t('Send request')}</button></div>
     </form>
   );
 }
 
 export default function Support() {
+  const t = useT();
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const staff = ['super_admin', 'instructor'].includes(user.role);
@@ -126,33 +129,33 @@ export default function Support() {
   return (
     <div className="page">
       <div className="page-head">
-        <div><h1>{title}</h1><p>{intro}</p></div>
+        <div><h1>{t(title)}</h1><p>{t(intro)}</p></div>
         <span className="spacer" />
-        {!staff && !creating && <button className="btn btn-primary" onClick={() => setParams({ new: '' })}><Plus size={16} /> New request</button>}
+        {!staff && !creating && <button className="btn btn-primary" onClick={() => setParams({ new: '' })}><Plus size={16} /> {t('New request')}</button>}
       </div>
 
       {creating && <NewTicket onCancel={() => setParams({})} />}
 
       {data?.stats && (
         <div className="stats">
-          <div className="stat"><b>{data.stats.open}</b><span>Need a reply</span></div>
-          <div className="stat"><b>{data.stats.answered}</b><span>Waiting on customer</span></div>
-          <div className="stat"><b>{data.stats.resolved}</b><span>Resolved</span></div>
-          <div className="stat"><b>{data.stats.avgFirstResponseHours ?? '—'}{data.stats.avgFirstResponseHours != null && 'h'}</b><span>Avg. first response</span></div>
+          <div className="stat"><b>{data.stats.open}</b><span>{t('Need a reply')}</span></div>
+          <div className="stat"><b>{data.stats.answered}</b><span>{t('Waiting on customer')}</span></div>
+          <div className="stat"><b>{data.stats.resolved}</b><span>{t('Resolved')}</span></div>
+          <div className="stat"><b>{data.stats.avgFirstResponseHours ?? '—'}{data.stats.avgFirstResponseHours != null && 'h'}</b><span>{t('Avg. first response')}</span></div>
         </div>
       )}
 
       <div className="row" style={{ marginBottom: 'var(--sp-3)' }}>
         <div className="tabs">
           {[['active', 'Active'], ['open', staff ? 'Needs reply' : 'Waiting for support'], ['answered', staff ? 'Waiting on customer' : 'Replied'], ['resolved', 'Resolved'], ['all', 'All']].map(([k, l]) => (
-            <button key={k} className={status === k ? 'active' : ''} onClick={() => setStatus(k)}>{l}</button>
+            <button key={k} className={status === k ? 'active' : ''} onClick={() => setStatus(k)}>{t(l)}</button>
           ))}
         </div>
         {user.role === 'super_admin' && (
-          <select className="select" style={{ width: 'auto' }} value={channel} onChange={(e) => setChannel(e.target.value)} aria-label="Channel">
-            <option value="">All channels</option>
-            <option value="platform">Platform support</option>
-            <option value="course">Course questions</option>
+          <select className="select" style={{ width: 'auto' }} value={channel} onChange={(e) => setChannel(e.target.value)} aria-label={t('Channel')}>
+            <option value="">{t('All channels')}</option>
+            <option value="platform">{t('Platform support')}</option>
+            <option value="course">{t('Course questions')}</option>
           </select>
         )}
       </div>
@@ -161,26 +164,26 @@ export default function Support() {
       {loading ? <div className="card"><Loader rows={4} /></div> : !data?.tickets.length ? (
         <div className="card empty">
           <LifeBuoy style={{ margin: '0 auto 8px' }} />
-          <h3>{staff ? 'Nothing waiting' : 'No requests yet'}</h3>
-          <p>{staff ? 'New questions will show up here.' : 'When you need help, open a request — you’ll get a reply right here.'}</p>
+          <h3>{staff ? t('Nothing waiting') : t('No requests yet')}</h3>
+          <p>{staff ? t('New questions will show up here.') : t('When you need help, open a request — you’ll get a reply right here.')}</p>
         </div>
       ) : (
         <div className="card card-flush">
           <table className="table">
-            <thead><tr><th>Request</th>{staff && <th>From</th>}<th>Channel</th><th>Status</th><th>Last activity</th></tr></thead>
+            <thead><tr><th>{t('Request')}</th>{staff && <th>{t('From')}</th>}<th>{t('Channel')}</th><th>{t('Status')}</th><th>{t('Last activity')}</th></tr></thead>
             <tbody>
-              {data.tickets.map((t) => (
-                <tr key={t._id} className="clickable">
+              {data.tickets.map((tk) => (
+                <tr key={tk._id} className="clickable">
                   <td data-label="Request">
-                    <Link to={`/support/${t._id}`} className="ticket-link">
-                      <MessageCircle size={15} /> <span><span className="muted">#{t.number}</span> {t.subject}</span>
+                    <Link to={`/support/${tk._id}`} className="ticket-link">
+                      <MessageCircle size={15} /> <span><span className="muted">#{tk.number}</span> {tk.subject}</span>
                     </Link>
-                    {['high', 'urgent'].includes(t.priority) && <span className={`chip ${t.priority === 'urgent' ? 'chip-danger' : 'chip-warn'}`} style={{ marginTop: 4 }}>{t.priority}</span>}
+                    {['high', 'urgent'].includes(tk.priority) && <span className={`chip ${tk.priority === 'urgent' ? 'chip-danger' : 'chip-warn'}`} style={{ marginTop: 4 }}>{tk.priority}</span>}
                   </td>
-                  {staff && <td data-label="From">{t.requester?.name}<div className="small muted">{t.company?.name || '—'}</div></td>}
-                  <td data-label="Channel">{t.channel === 'course' ? <span className="chip chip-info">{t.course?.code || 'Course'}</span> : <span className="chip">Platform</span>}</td>
-                  <td data-label="Status"><span className={`chip ${labels[t.status][1]}`}>{labels[t.status][0]}</span></td>
-                  <td data-label="Last activity" className="muted">{fmtDate(t.lastActivityAt)}</td>
+                  {staff && <td data-label="From">{tk.requester?.name}<div className="small muted">{tk.company?.name || '—'}</div></td>}
+                  <td data-label="Channel">{tk.channel === 'course' ? <span className="chip chip-info">{tk.course?.code || 'Course'}</span> : <span className="chip">{t('Platform')}</span>}</td>
+                  <td data-label="Status"><span className={`chip ${labels[tk.status][1]}`}>{t(labels[tk.status][0])}</span></td>
+                  <td data-label="Last activity" className="muted">{fmtDate(tk.lastActivityAt)}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,5 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { AR } from './ar';
+import { AR_STAFF } from './ar-staff';
+
+const DICT = { ...AR_STAFF, ...AR };
 
 /**
  * Tiny i18n: the English text is the key, so anything not translated yet simply shows in English.
@@ -22,7 +25,7 @@ export function I18nProvider({ children }) {
   useEffect(() => applyLang(lang), [lang]);
   const setLang = useCallback((l) => setLangState(l === 'ar' ? 'ar' : 'en'), []);
   const t = useCallback((s, vars) => {
-    let out = (lang === 'ar' && AR[s]) || s;
+    let out = (lang === 'ar' && DICT[s]) || s;
     if (vars) for (const [k, v] of Object.entries(vars)) out = out.replaceAll(`{${k}}`, v);
     return out;
   }, [lang]);

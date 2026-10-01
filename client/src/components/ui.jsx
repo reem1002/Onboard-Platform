@@ -16,8 +16,9 @@ export function SkeletonText({ lines = 3, last = '60%' }) {
 }
 
 export function ListSkeleton({ rows = 4 }) {
+  const t = useT();
   return (
-    <div className="skel-list" role="status" aria-label="Loading">
+    <div className="skel-list" role="status" aria-label={t('Loading')}>
       {Array.from({ length: rows }, (_, i) => (
         <div className="skel-row" key={i}>
           <Skeleton w={56} h={22} r={999} />
@@ -31,8 +32,9 @@ export function ListSkeleton({ rows = 4 }) {
 
 /** Whole-page placeholder. variant: dashboard | list | detail | cards | table */
 export function PageSkeleton({ variant = 'list' }) {
+  const t = useT();
   return (
-    <div className="page" role="status" aria-label="Loading page">
+    <div className="page" role="status" aria-label={t('Loading page')}>
       <div className="page-head" aria-hidden>
         <div style={{ width: '100%' }}>
           <Skeleton w={110} h={12} />
@@ -71,6 +73,7 @@ export const Loader = ({ rows }) => (rows ? <ListSkeleton rows={rows} /> : <div 
 
 /** Determinate progress for uploads: bar + percentage + transferred size. */
 export function UploadProgress({ loaded, total, onCancel, label = 'Uploading' }) {
+  const t = useT();
   const pct = total ? Math.round((loaded / total) * 100) : 0;
   return (
     <div className="upload-progress" role="status" aria-live="polite">
@@ -79,7 +82,7 @@ export function UploadProgress({ loaded, total, onCancel, label = 'Uploading' })
         <strong>{pct < 100 ? `${label}… ${pct}%` : 'Processing…'}</strong>
         <span className="muted">{fmtBytes(loaded)} of {fmtBytes(total)}</span>
         <span className="spacer" />
-        {onCancel && pct < 100 && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
+        {onCancel && pct < 100 && <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel}>{t('Cancel')}</button>}
       </div>
       <div className="progress upload-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${pct}%` }} /></div>
     </div>

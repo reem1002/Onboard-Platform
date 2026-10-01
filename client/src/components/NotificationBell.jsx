@@ -3,11 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { api } from '../api/client';
 import { NotifIcon, timeAgo } from './notifications';
-import { useT } from '../lib/i18n';
+import { useT, useI18n } from '../lib/i18n';
 
 /** Bell + dropdown of recent in-app notifications. Polls every 60 s (and on navigation). */
 export default function NotificationBell() {
   const t = useT();
+  const { lang } = useI18n();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -15,9 +16,9 @@ export default function NotificationBell() {
   const loc = useLocation();
   const nav = useNavigate();
 
-  const load = useCallback(() => api.get('/notifications', { params: { limit: 15 }, silent: true })
+  const load = useCallback(() => api.get('/notifications', { params: { limit: 15, lang }, silent: true })
     .then(({ data }) => { setItems(data.items); setUnread(data.unread); })
-    .catch(() => {}), []);
+    .catch(() => {}), [lang]);
 
   // Poll every 60 s and when the tab regains focus; navigating doesn't refetch more than every 20 s
   const last = useRef(0);
@@ -27,9 +28,9 @@ export default function NotificationBell() {
     load();
   }, [load]);
   useEffect(() => {
-    const t = setInterval(() => { last.current = Date.now(); load(); }, 60000);
+    const timer = setInterval(() => { last.current = Date.now(); load(); }, 60000);
     window.addEventListener('focus', throttled);
-    return () => { clearInterval(t); window.removeEventListener('focus', throttled); };
+    return () => { clearInterval(timer); window.removeEventListener('focus', throttled); };
   }, [load, throttled]);
   useEffect(() => { throttled(); }, [loc.pathname, throttled]);
   useEffect(() => { if (open) load(); }, [open, load]);

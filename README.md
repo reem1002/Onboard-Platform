@@ -27,7 +27,7 @@ dashboards for company admins, instructors and employees.
 - **Due-date reminders** (hourly job): course due in 3 days / 1 day / overdue (overdue also tells the company admin), assignment due in 2 days / overdue, and a daily nudge to instructors when work waits > 48 h. Each reminder is sent once. Users can turn them off under Account settings → Email notifications.
 - **Certificates**: issued automatically when an employee completes every graded item of a course (PDF with QR code). Anyone can check one at `/verify/<code>`; the platform admin can revoke.
 - **Company branding**: the company admin (or platform admin) uploads a logo and picks an accent colour (with a contrast check); it is applied to that company's users, PDFs and exports.
-- **Arabic / RTL**: EN ⇄ عربي toggle (top bar and sign-in page), saved per account. Employee-facing pages are translated; staff-only pages and course content stay in English for now.
+- **Arabic / RTL**: EN ⇄ عربي toggle (top bar, sign-in page, Account settings), saved per account. All pages are translated (staff pages too), and notifications and notification emails follow each person's language. Course content stays as written.
 - **Exports**: team progress as **CSV** or **PDF** (Team progress page) and a course **gradebook CSV** (course page). CSV opens in Excel with Arabic names intact and is protected against formula injection.
 
 ## Roles
@@ -132,7 +132,8 @@ The AI only drafts; an instructor approves every grade.
 3. In the app: **Settings → AI grading → In-house (free)**, pick the model, Save. The status dot turns green when Ollama is reachable.
 
 How a draft is made:
-- **Reading files:** PDF, Word, text/CSV. Scanned PDFs / screenshots-only files are flagged. Long submissions are not cut off: for each criterion the most relevant paragraphs are sent to the model, and quotes are checked against the whole document.
+- **Reading files:** PDF, Word, text/CSV, and **OCR** (free, offline, English + Arabic) for screenshots, images inside Word reports and scanned PDFs — so lab reports made of screenshots are graded on what the screenshots say. OCR text is marked so instructors know to double-check exact values.
+- **Long submissions:** Long submissions are not cut off: for each criterion the most relevant paragraphs are sent to the model, and quotes are checked against the whole document.
 - **Unreadable submissions skip the AI** (fewer than 60 readable words): the instructor is told to grade it with the file viewer instead of getting an invented draft.
 - **Automatic checks (no AI):** very little text, unreadable files, text that tries to instruct the AI, tasks with no matching section, text copied from the brief, similarity to a colleague's submission (MinHash fingerprints).
 - **Criterion by criterion:** the model grades one rubric criterion at a time and must quote the submission. Quotes are verified; invented quotes are dropped and a high score with no real quote is flagged.
@@ -158,6 +159,12 @@ If Ollama is off, the submission falls back to manual grading and instructors ar
    ```
 4. Restart the server, then Settings → “Send me a test email”. Gmail allows roughly 500 emails a day — fine for testing; use a transactional provider (Brevo, Resend, Amazon SES…) with your own domain in production.
 
+## Reviewing AI drafts
+
+- **Review queue**: one compact row per submission (employee, assignment, waiting time, AI score with a confidence dot, number of warnings, status, Review button). Click a row to expand it: what to check, files, note, model, and actions (Review & grade, View files, Re-draft with AI). Search and course filter on top.
+- **Review page**: an AI summary card first (score, confidence explained, warnings, Re-draft), then the rubric scores, overview, strengths, areas to tighten up. Edits **save automatically** as a private draft (never shown to the employee) — leaving the page loses nothing. Approving with serious warnings before opening the file asks once more; returning asks for confirmation. On phones the total and the Approve/Return buttons stay pinned to the bottom.
+- The overview's “earned N/100” always matches the approved total.
+
 ## Rate limits (why a refresh is never needed)
 
 API requests are limited per signed-in user (1,500 / 15 min in production, much higher in development), not per IP — so several accounts tested from one laptop no longer share a budget. Sign-in counts only *failed* attempts (20 / 15 min per IP + email). Token refresh has its own generous limit. A limited request returns a clear JSON message instead of “something went wrong”.
@@ -172,5 +179,4 @@ API requests are limited per signed-in user (1,500 / 15 min in production, much 
 
 1. Importer: pull existing Moodle assignments (all SOC/CSS/GRC items) into the structured format.
 2. MFA (TOTP) for admins and instructors.
-3. Translate staff pages (review, editors, settings) and server notification texts to Arabic.
-4. OCR for scanned PDFs / screenshots before AI grading.
+3. Arabic versions of the PDF/Word exports (feedback sheet, progress report, certificate).

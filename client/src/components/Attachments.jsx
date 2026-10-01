@@ -47,6 +47,7 @@ export function AttachmentList({ assignment }) {
 
 /** Upload / remove resources in the assignment editor. */
 export function AttachmentManager({ assignmentId, attachments, onChange, limitMB }) {
+  const t = useT();
   const [progress, setProgress] = useState(null);
   const [err, setErr] = useState('');
   const [drag, setDrag] = useState(false);
@@ -85,7 +86,7 @@ export function AttachmentManager({ assignmentId, attachments, onChange, limitMB
     } catch (e) { setErr(errorMessage(e)); }
   };
 
-  if (!assignmentId) return <p className="small muted">Save the assignment first, then add files here.</p>;
+  if (!assignmentId) return <p className="small muted">{t('Save the assignment first, then add files here.')}</p>;
 
   return (
     <div className="stack">
@@ -113,9 +114,9 @@ export function AttachmentManager({ assignmentId, attachments, onChange, limitMB
           onDrop={(e) => { e.preventDefault(); setDrag(false); send(e.dataTransfer.files); }}
         >
           <Upload size={18} style={{ margin: '0 auto 6px' }} />
-          Drop templates, sample logs or pcaps here, or <u>browse</u>
-          <div className="muted small">Up to {limitMB || '—'} MB per file · {ATTACHMENT_TYPES.map((t) => `.${t}`).join(' ')}</div>
-          <input ref={input} type="file" hidden multiple accept={ATTACHMENT_TYPES.map((t) => `.${t}`).join(',')} onChange={(e) => { send(e.target.files); e.target.value = ''; }} />
+          {t('Drop templates, sample logs or pcaps here, or')} <u>{t('browse')}</u>
+          <div className="muted small">Up to {limitMB || '—'} MB per file · {ATTACHMENT_TYPES.map((x) => `.${x}`).join(' ')}</div>
+          <input ref={input} type="file" hidden multiple accept={ATTACHMENT_TYPES.map((x) => `.${x}`).join(',')} onChange={(e) => { send(e.target.files); e.target.value = ''; }} />
         </div>
       )}
     </div>

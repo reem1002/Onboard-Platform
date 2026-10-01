@@ -9,7 +9,7 @@ router.use(requireAuth);
 
 router.get(
   '/',
-  validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(20), unread: z.enum(['1', '0']).optional() }) }),
+  validate({ query: z.object({ limit: z.coerce.number().int().min(1).max(100).default(20), unread: z.enum(['1', '0']).optional(), lang: z.enum(['en', 'ar']).optional() }) }),
   asyncHandler(async (req, res) => {
     const filter = { user: req.user._id };
     if (req.validatedQuery.unread === '1') filter.readAt = null;
@@ -17,7 +17,9 @@ router.get(
       Notification.find(filter).sort({ createdAt: -1 }).limit(req.validatedQuery.limit),
       Notification.countDocuments({ user: req.user._id, readAt: null }),
     ]);
-    res.json({ items, unread });
+    const lang = req.validatedQuery.lang || req.user.preferences?.language || 'en';
+    const { tr } = require('../services/i18n');
+    res.json({ items: items.map((n) => ({ ...n.toJSON(), title: tr(n.title, lang), body: tr(n.body, lang) })), unread });
   })
 );
 

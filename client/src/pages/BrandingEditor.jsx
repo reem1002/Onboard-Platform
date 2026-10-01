@@ -6,11 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { useBranding } from '../context/BrandingContext';
 import { ErrorBox, PageSkeleton, Progress } from '../components/ui';
 import { contrast, inkOn } from '../lib/color';
+import { useT } from '../lib/i18n';
 
 const PRESETS = ['#141414', '#1D4ED8', '#0F766E', '#B91C1C', '#7C3AED', '#C2410C', '#0369A1', '#15803D'];
 
 /** Company look: logo + accent colour, shown to the company's admins and employees and on their certificates. */
 export default function BrandingEditor() {
+  const t = useT();
   const { user } = useAuth();
   const { refresh } = useBranding();
   const params = useParams();
@@ -53,36 +55,36 @@ export default function BrandingEditor() {
 
   return (
     <div className="page" style={{ maxWidth: 980 }}>
-      {params.id && <Link to="/admin/companies" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> Companies</Link>}
+      {params.id && <Link to="/admin/companies" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> {t('Companies')}</Link>}
       <div className="page-head">
         <div>
           <h1>{b.name} branding</h1>
-          <p>Your logo and colour appear for your admins and employees, and on their certificates and exported reports.</p>
+          <p>{t('Your logo and colour appear for your admins and employees, and on their certificates and exported reports.')}</p>
         </div>
       </div>
       {msg.ok && <div className="alert alert-ok" role="status">{msg.ok}</div>}
       <ErrorBox>{msg.err}</ErrorBox>
       <div className="profile-grid">
         <section className="card stack">
-          <div className="row"><ImagePlus size={18} /><h2 className="h-card">Logo</h2></div>
-          <div className="logo-box">{b.logoUrl ? <img src={b.logoUrl} alt={`${b.name} logo`} /> : <span className="muted small">No logo yet</span>}</div>
-          <p className="small muted">PNG or JPG, up to 1 MB. A wide logo on a transparent background works best.</p>
+          <div className="row"><ImagePlus size={18} /><h2 className="h-card">{t('Logo')}</h2></div>
+          <div className="logo-box">{b.logoUrl ? <img src={b.logoUrl} alt={`${b.name} logo`} /> : <span className="muted small">{t('No logo yet')}</span>}</div>
+          <p className="small muted">{t('PNG or JPG, up to 1 MB. A wide logo on a transparent background works best.')}</p>
           <div className="row">
-            <button className="btn" disabled={busy} onClick={() => input.current.click()}><ImagePlus size={15} /> {b.logoUrl ? 'Replace logo' : 'Upload logo'}</button>
-            {b.logoUrl && <button className="btn btn-ghost" disabled={busy} onClick={removeLogo}><Trash2 size={15} /> Remove</button>}
+            <button className="btn" disabled={busy} onClick={() => input.current.click()}><ImagePlus size={15} /> {b.logoUrl ? t('Replace logo') : t('Upload logo')}</button>
+            {b.logoUrl && <button className="btn btn-ghost" disabled={busy} onClick={removeLogo}><Trash2 size={15} /> {t('Remove')}</button>}
             <input ref={input} type="file" hidden accept=".png,.jpg,.jpeg" onChange={(e) => { upload(e.target.files[0]); e.target.value = ''; }} />
           </div>
         </section>
 
         <section className="card stack">
-          <div className="row"><Palette size={18} /><h2 className="h-card">Accent colour</h2></div>
+          <div className="row"><Palette size={18} /><h2 className="h-card">{t('Accent colour')}</h2></div>
           <div className="row">
             {PRESETS.map((p) => <button key={p} type="button" className={`swatch ${color.toLowerCase() === p.toLowerCase() ? 'on' : ''}`} style={{ background: p }} aria-label={`Use ${p}`} onClick={() => setColor(p)} />)}
           </div>
           <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <input type="color" aria-label="Pick a colour" value={valid ? color : '#141414'} onChange={(e) => setColor(e.target.value)} className="color-input" />
-            <input className="input" style={{ maxWidth: 140 }} value={color} placeholder="#1D4ED8" onChange={(e) => setColor(e.target.value.trim())} aria-label="Hex colour" />
-            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setColor('')}>Use default</button>
+            <input type="color" aria-label={t('Pick a colour')} value={valid ? color : '#141414'} onChange={(e) => setColor(e.target.value)} className="color-input" />
+            <input className="input" style={{ maxWidth: 140 }} value={color} placeholder={t('#1D4ED8')} onChange={(e) => setColor(e.target.value.trim())} aria-label={t('Hex colour')} />
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setColor('')}>{t('Use default')}</button>
           </div>
           {valid && (
             <p className="small" style={{ color: ratio >= 4.5 && onPage >= 3 ? 'var(--ok)' : 'var(--warn)' }}>
@@ -91,14 +93,14 @@ export default function BrandingEditor() {
             </p>
           )}
           <div className="brand-preview" style={previewStyle}>
-            <span className="small muted">Preview</span>
+            <span className="small muted">{t('Preview')}</span>
             <div className="row">
-              <span className="pill-preview">Dashboard</span>
-              <button type="button" className="btn btn-primary btn-sm">Submit for review</button>
+              <span className="pill-preview">{t('Dashboard')}</span>
+              <button type="button" className="btn btn-primary btn-sm">{t('Submit for review')}</button>
             </div>
             <div className="brand-progress"><Progress value={64} /></div>
           </div>
-          <div className="row"><span className="spacer" /><button className="btn btn-primary" disabled={busy || (color && !valid)} onClick={save}><Save size={15} /> Save colour</button></div>
+          <div className="row"><span className="spacer" /><button className="btn btn-primary" disabled={busy || (color && !valid)} onClick={save}><Save size={15} /> {t('Save colour')}</button></div>
         </section>
       </div>
     </div>

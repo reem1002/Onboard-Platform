@@ -46,9 +46,10 @@ router.get(
         .sort({ createdAt: 1 }) // oldest first – fair queue
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate('student', 'name email department')
-        .populate('assignment', 'code title')
-        .select('-files.storedName'),
+        .populate({ path: 'student', select: 'name email department company', populate: { path: 'company', select: 'name' } })
+        .populate('assignment', 'code title passScore maxScore')
+        .populate('course', 'code title')
+        .select('-files.storedName -reviewDraft'),
       Submission.countDocuments(filter),
     ]);
     res.json({ items, total, page, limit });
@@ -136,6 +137,40 @@ router.get(
 );
 
 /* Instructor decision: approve AI draft (optionally edited) or return for rework */
+const feedbackBody = {
+  criteria: z
+    .array(z.object({ criterionId: objectId, score: z.number().min(0).max(100), comment: z.string().max(3000).optional() }))
+    .max(20)
+    .optional(),
+  overview: z.string().max(3000).optional(),
+  strengths: z.array(z.object({ task: z.string().max(300), detail: z.string().max(2000) })).max(10).optional(),
+  improvements: z
+    .array(z.object({ task: z.string().max(300), issue: z.string().max(2000), suggestion: z.string().max(2000) }))
+    .max(10)
+    .optional(),
+  closing: z.string().max(1000).optional(),
+};
+
+/** Keep the overview's "earned N/100" in step with the score the instructor actually approved. */
+function syncOverviewTotal(text, total, max) {
+  if (!text) return text;
+  return String(text).replaceAll('{{TOTAL}}', String(total)).replace(/(earned\s+)\d+(?:\.\d+)?\s*\/\s*100\b/i, `$1${total}/${max}`);
+}
+
+/* Save the instructor's work in progress (never visible to the employee) */
+router.put(
+  '/:id/draft',
+  requireRole(...GRADERS),
+  validate({ params: z.object({ id: objectId }), body: z.object(feedbackBody) }),
+  asyncHandler(async (req, res) => {
+    const sub = await loadSubmission(req.user, req.params.id);
+    if (['approved', 'ai_grading'].includes(sub.status)) throw new AppError(409, sub.status === 'approved' ? 'Submission already approved' : 'AI grading still in progress');
+    sub.reviewDraft = { ...req.body, savedBy: req.user._id, savedAt: new Date() };
+    sub.markModified('reviewDraft');
+    await sub.save();
+    res.json({ savedAt: sub.reviewDraft.savedAt });
+  })
+);
 router.post(
   '/:id/review',
   requireRole(...GRADERS),
@@ -143,17 +178,7 @@ router.post(
     params: z.object({ id: objectId }),
     body: z.object({
       decision: z.enum(['approve', 'return']),
-      criteria: z
-        .array(z.object({ criterionId: objectId, score: z.number().min(0).max(100), comment: z.string().max(3000).optional() }))
-        .max(20)
-        .optional(),
-      overview: z.string().max(3000).optional(),
-      strengths: z.array(z.object({ task: z.string().max(300), detail: z.string().max(2000) })).max(10).optional(),
-      improvements: z
-        .array(z.object({ task: z.string().max(300), issue: z.string().max(2000), suggestion: z.string().max(2000) }))
-        .max(10)
-        .optional(),
-      closing: z.string().max(1000).optional(),
+      ...feedbackBody,
     }),
   }),
   asyncHandler(async (req, res) => {
@@ -188,7 +213,7 @@ router.post(
     sub.final = {
       criteria,
       totalScore: weightedTotal(assignment.rubric, criteria, assignment.maxScore),
-      overview: pick('overview'),
+      overview: syncOverviewTotal(pick('overview'), weightedTotal(assignment.rubric, criteria, assignment.maxScore), assignment.maxScore),
       strengths: clean(pick('strengths'), ['task', 'detail']),
       improvements: clean(pick('improvements'), ['task', 'issue', 'suggestion']),
       closing: pick('closing'),
@@ -197,6 +222,7 @@ router.post(
       acceptedAiAsIs,
     };
     sub.status = req.body.decision === 'approve' ? 'approved' : 'returned';
+    sub.reviewDraft = undefined;
     await sub.save();
     await notify(sub.student, req.body.decision === 'approve'
       ? { type: 'graded', title: `${assignment.code} graded: ${sub.final.totalScore}/${assignment.maxScore}`, body: assignment.title, link: `/feedback/${sub._id}` }
@@ -220,6 +246,7 @@ async function feedbackFor(req) {
   if (viewer && !hasFinal) throw new AppError(404, 'Feedback is not available yet');
   const feedback = hasFinal ? sub.final.toObject() : sub.ai?.criteria?.length ? sub.ai.toObject() : null;
   if (!feedback) throw new AppError(404, 'No feedback to export yet');
+  feedback.overview = syncOverviewTotal(feedback.overview, feedback.totalScore, sub.assignment?.maxScore || 100);
   await sub.populate([
     { path: 'student', select: 'name email' },
     { path: 'assignment', select: 'code title maxScore' },
@@ -266,6 +293,7 @@ router.post(
     const sub = await loadSubmission(req.user, req.params.id);
     if (['approved', 'ai_grading'].includes(sub.status)) throw new AppError(409, 'Cannot regrade now');
     const queued = await enqueue(sub._id);
+    if (queued) await Submission.updateOne({ _id: sub._id }, { $unset: { reviewDraft: 1 } });
     if (!queued) throw new AppError(503, 'AI grading is not configured');
     res.status(202).json({ queued: true });
   })

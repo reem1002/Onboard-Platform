@@ -29,20 +29,28 @@ const CATEGORY = {
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 function renderEmail(user, { title, body, link }) {
+  const { tr, UI } = require('./i18n');
+  const ar = user.preferences?.language === 'ar';
+  const T = tr(title, ar ? 'ar' : 'en');
+  const B = tr(body, ar ? 'ar' : 'en');
+  const first = user.name.split(' ')[0];
   const url = link ? `${env.APP_URL.replace(/\/$/, '')}${link}` : env.APP_URL;
   const prefs = `${env.APP_URL.replace(/\/$/, '')}/profile#notifications`;
-  const text = `Hi ${user.name.split(' ')[0]},\n\n${title}${body ? `\n${body}` : ''}\n\nOpen: ${url}\n\n—\n${env.ORG_NAME} training platform. Change which emails you get: ${prefs}`;
-  const html = `<!doctype html><html><body style="margin:0;background:#f4efe9;font-family:Segoe UI,Arial,sans-serif;color:#141414">
+  const L = ar
+    ? { hi: UI.hi(first), open: UI.open, footer: UI.footer, change: UI.change, training: UI.training, dir: 'rtl', lang: 'ar', align: 'right' }
+    : { hi: `Hi ${first},`, open: 'Open in the platform', footer: 'You’re getting this because of your notification settings.', change: 'Change them', training: 'Training', dir: 'ltr', lang: 'en', align: 'left' };
+  const text = `${L.hi}\n\n${T}${B ? `\n${B}` : ''}\n\n${L.open}: ${url}\n\n—\n${env.ORG_NAME}. ${L.change}: ${prefs}`;
+  const html = `<!doctype html><html lang="${L.lang}" dir="${L.dir}"><body style="margin:0;background:#f4efe9;font-family:Segoe UI,Tahoma,Arial,sans-serif;color:#141414">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4efe9;padding:24px 12px"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;padding:28px">
-<tr><td style="font-size:13px;color:#8a8580;padding-bottom:14px">${esc(env.ORG_NAME)} · Training</td></tr>
-<tr><td style="font-size:15px;padding-bottom:6px">Hi ${esc(user.name.split(' ')[0])},</td></tr>
-<tr><td style="font-size:18px;font-weight:600;line-height:1.35;padding-bottom:8px">${esc(title)}</td></tr>
-${body ? `<tr><td style="font-size:15px;line-height:1.5;color:#4b4b4b;padding-bottom:20px">${esc(body)}</td></tr>` : ''}
-<tr><td><a href="${esc(url)}" style="display:inline-block;background:#141414;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:999px">Open in the platform</a></td></tr>
-<tr><td style="font-size:12px;color:#8a8580;padding-top:24px;border-top:1px solid #ece5dd;margin-top:24px">You’re getting this because of your notification settings. <a href="${esc(prefs)}" style="color:#8a8580">Change them</a>.</td></tr>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="${L.dir}" style="max-width:520px;background:#ffffff;border-radius:16px;padding:28px;text-align:${L.align}">
+<tr><td style="font-size:13px;color:#8a8580;padding-bottom:14px">${esc(env.ORG_NAME)} · ${L.training}</td></tr>
+<tr><td style="font-size:15px;padding-bottom:6px">${esc(L.hi)}</td></tr>
+<tr><td style="font-size:18px;font-weight:600;line-height:1.45;padding-bottom:8px">${esc(T)}</td></tr>
+${B ? `<tr><td style="font-size:15px;line-height:1.6;color:#4b4b4b;padding-bottom:20px">${esc(B)}</td></tr>` : ''}
+<tr><td><a href="${esc(url)}" style="display:inline-block;background:#141414;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:12px 22px;border-radius:999px">${L.open}</a></td></tr>
+<tr><td style="font-size:12px;color:#8a8580;padding-top:24px;border-top:1px solid #ece5dd;margin-top:24px">${L.footer} <a href="${esc(prefs)}" style="color:#8a8580">${L.change}</a>.</td></tr>
 </table></td></tr></table></body></html>`;
-  return { subject: title, text, html };
+  return { subject: T, text, html };
 }
 
 /** Send notification emails in the background (never blocks or fails the request). */

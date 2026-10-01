@@ -59,20 +59,20 @@ export default function Certificates() {
       ) : (
         <div className="card card-flush">
           <table className="table">
-            <thead><tr><th>Employee</th><th>Course</th><th>Number</th><th>Issued</th><th>Avg grade</th><th /></tr></thead>
+            <thead><tr><th>{t('Employee')}</th><th>{t('Course')}</th><th>{t('Number')}</th><th>{t('Issued')}</th><th>{t('Avg grade')}</th><th /></tr></thead>
             <tbody>
               {certs.map((c) => (
                 <tr key={c._id} style={{ opacity: c.revokedAt ? 0.55 : 1 }}>
                   <td data-label="Employee"><strong>{c.studentName}</strong><div className="small muted">{c.companyName}</div></td>
                   <td data-label="Course"><span className="item-code">{c.courseCode}</span></td>
-                  <td data-label="Number">{c.number}{c.revokedAt && <span className="chip chip-danger" style={{ marginInlineStart: 6 }}>Revoked</span>}</td>
+                  <td data-label="Number">{c.number}{c.revokedAt && <span className="chip chip-danger" style={{ marginInlineStart: 6 }}>{t('Revoked')}</span>}</td>
                   <td data-label="Issued">{fmtDate(c.issuedAt)}</td>
                   <td data-label="Avg grade">{c.avgScore != null ? `${c.avgScore}%` : '—'}</td>
                   <td>
                     <div className="row" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                       {!c.revokedAt && <button className="btn btn-sm" onClick={() => pdf(c)}><FileDown size={14} /> PDF</button>}
-                      <button className="btn btn-ghost btn-sm" onClick={() => copy(c)} title="Copy verification link">{copied === c._id ? <Check size={14} /> : <Copy size={14} />}</button>
-                      {user.role === 'super_admin' && !c.revokedAt && <button className="btn btn-ghost btn-sm" onClick={() => revoke(c)}>Revoke</button>}
+                      <button className="btn btn-ghost btn-sm" onClick={() => copy(c)} title={t('Copy verification link')}>{copied === c._id ? <Check size={14} /> : <Copy size={14} />}</button>
+                      {user.role === 'super_admin' && !c.revokedAt && <button className="btn btn-ghost btn-sm" onClick={() => revoke(c)}>{t('Revoke')}</button>}
                     </div>
                   </td>
                 </tr>

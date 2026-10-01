@@ -63,13 +63,13 @@ export default function AssignmentBrief({ a }) {
       {a.tasks?.length > 0 && (
         <section className="brief-section">
           <h2>{t('Tasks')}</h2>
-          {a.tasks.map((t, i) => (
-            <div className="task" id={`task-${i + 1}`} key={t._id || i}>
+          {a.tasks.map((tk, i) => (
+            <div className="task" id={`task-${i + 1}`} key={tk._id || i}>
               <div className="task-num">{i + 1}</div>
               <div>
-                <h3>{t.title}</h3>
-                <Bullets items={t.bullets} />
-                {t.callouts?.map((c, j) => <Callout key={j} c={c} />)}
+                <h3>{tk.title}</h3>
+                <Bullets items={tk.bullets} />
+                {tk.callouts?.map((c, j) => <Callout key={j} c={c} />)}
               </div>
             </div>
           ))}

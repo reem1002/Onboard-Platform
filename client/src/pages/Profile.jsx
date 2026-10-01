@@ -116,9 +116,9 @@ function ChangePassword() {
       <div className="row"><KeyRound size={18} /><h2 className="h-card">{t('Change password')}</h2></div>
       <ErrorBox>{err}</ErrorBox>
       {ok && <div className="alert alert-ok" role="status">{ok}</div>}
-      <PasswordField id="cp-cur" label="Current password" autoComplete="current-password" value={cur} onChange={setCur} />
-      <PasswordField id="cp-new" label="New password" value={pw} onChange={setPw} showRules={pw.length > 0} />
-      <PasswordField id="cp-new2" label="Repeat new password" value={pw2} onChange={setPw2} />
+      <PasswordField id="cp-cur" label={t('Current password')} autoComplete="current-password" value={cur} onChange={setCur} />
+      <PasswordField id="cp-new" label={t('New password')} value={pw} onChange={setPw} showRules={pw.length > 0} />
+      <PasswordField id="cp-new2" label={t('Repeat new password')} value={pw2} onChange={setPw2} />
       <p className="small muted">{t('Changing your password signs out all your other devices.')}</p>
       <div className="row"><span className="spacer" /><button className="btn btn-primary" disabled={busy || !cur || !passwordOk(pw) || !pw2}>{busy ? t('Changing…') : t('Change password')}</button></div>
     </form>
@@ -218,7 +218,7 @@ function Appearance() {
       <div className="field" style={{ marginTop: 4 }}>
         <span className="label-like">{t('Language')}</span>
         <div className="seg" role="radiogroup" aria-label={t('Language')}>
-          <button type="button" role="radio" aria-checked={lang === 'en'} className={lang === 'en' ? 'on' : ''} onClick={() => pickLang('en')} lang="en">English</button>
+          <button type="button" role="radio" aria-checked={lang === 'en'} className={lang === 'en' ? 'on' : ''} onClick={() => pickLang('en')} lang="en">{t('English')}</button>
           <button type="button" role="radio" aria-checked={lang === 'ar'} className={lang === 'ar' ? 'on' : ''} onClick={() => pickLang('ar')} lang="ar">العربية</button>
         </div>
       </div>

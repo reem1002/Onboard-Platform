@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { ErrorBox } from './ui';
+import { useT } from '../lib/i18n';
 
 /**
  * Organise a course: drag (or use the arrow buttons) to reorder items and move them between milestones,
@@ -24,6 +25,7 @@ function buildState(course, assignments, quizzes) {
 }
 
 export default function CourseOutlineEditor({ course, assignments, quizzes, onClose, onSaved }) {
+  const t = useT();
   const initial = useMemo(() => buildState(course, assignments, quizzes), [course, assignments, quizzes]);
   const [milestones, setMilestones] = useState(initial.milestones);
   const [lists, setLists] = useState(initial.lists);
@@ -150,12 +152,12 @@ export default function CourseOutlineEditor({ course, assignments, quizzes, onCl
     <div className="outline-editor">
       <div className="outline-bar card">
         <div>
-          <strong>Organise course</strong>
-          <p className="small muted" style={{ margin: 0 }}>Drag items (or use the arrows) to reorder them or move them to another milestone. Publishing, duplicating and deleting apply straight away.</p>
+          <strong>{t('Organise course')}</strong>
+          <p className="small muted" style={{ margin: 0 }}>{t('Drag items (or use the arrows) to reorder them or move them to another milestone. Publishing, duplicating and deleting apply straight away.')}</p>
         </div>
         <span className="spacer" />
-        <button className="btn" onClick={() => (dirty ? setConfirm({ leave: true }) : onClose())}><X size={15} /> {dirty ? 'Discard' : 'Done'}</button>
-        <button className="btn btn-primary" disabled={!dirty || busy} onClick={save}>{busy ? <><span className="spin-dot" /> Saving…</> : 'Save changes'}</button>
+        <button className="btn" onClick={() => (dirty ? setConfirm({ leave: true }) : onClose())}><X size={15} /> {dirty ? t('Discard') : t('Done')}</button>
+        <button className="btn btn-primary" disabled={!dirty || busy} onClick={save}>{busy ? <><span className="spin-dot" /> {t('Saving…')}</> : 'Save changes'}</button>
       </div>
       <ErrorBox>{err}</ErrorBox>
       {ok && <div className="alert alert-ok" role="status">{ok}</div>}
@@ -167,10 +169,10 @@ export default function CourseOutlineEditor({ course, assignments, quizzes, onCl
             <div className="outline-ms-head">
               <span className="ms-num">{mi + 1}</span>
               <input className="input ms-title" aria-label={`Milestone ${mi + 1} title`} value={m.title} maxLength={200} onChange={(e) => setMs(mi, { title: e.target.value })} />
-              <input className="input ms-weeks" aria-label="Weeks" placeholder="Weeks 1–2" value={m.weeks} maxLength={40} onChange={(e) => setMs(mi, { weeks: e.target.value })} />
-              <button className="btn btn-ghost icon-btn" disabled={mi === 0} aria-label="Move milestone up" onClick={() => moveMs(mi, -1)}><ArrowUp size={15} /></button>
-              <button className="btn btn-ghost icon-btn" disabled={mi === milestones.length - 1} aria-label="Move milestone down" onClick={() => moveMs(mi, 1)}><ArrowDown size={15} /></button>
-              <button className="btn btn-ghost icon-btn" disabled={list.length > 0} title={list.length ? 'Move or delete its items first' : 'Remove milestone'} aria-label="Remove milestone" onClick={() => removeMs(mi)}><Trash2 size={15} /></button>
+              <input className="input ms-weeks" aria-label={t('Weeks')} placeholder={t('Weeks 1–2')} value={m.weeks} maxLength={40} onChange={(e) => setMs(mi, { weeks: e.target.value })} />
+              <button className="btn btn-ghost icon-btn" disabled={mi === 0} aria-label={t('Move milestone up')} onClick={() => moveMs(mi, -1)}><ArrowUp size={15} /></button>
+              <button className="btn btn-ghost icon-btn" disabled={mi === milestones.length - 1} aria-label={t('Move milestone down')} onClick={() => moveMs(mi, 1)}><ArrowDown size={15} /></button>
+              <button className="btn btn-ghost icon-btn" disabled={list.length > 0} title={list.length ? t('Move or delete its items first') : t('Remove milestone')} aria-label={t('Remove milestone')} onClick={() => removeMs(mi)}><Trash2 size={15} /></button>
             </div>
             <ul className="outline-list">
               {list.map((it, i) => (
@@ -184,31 +186,31 @@ export default function CourseOutlineEditor({ course, assignments, quizzes, onCl
                 >
                   <span className="grip" aria-hidden><GripVertical size={16} /></span>
                   <span className={`item-code ${it.type === 'lesson' ? 'lesson' : it.kind === 'quiz' ? 'quiz' : ''}`}>
-                    {it.kind === 'quiz' ? <><ListChecks size={12} /> Quiz</> : it.type === 'lesson' ? <><PlayCircle size={12} /> Lesson</> : it.code}
+                    {it.kind === 'quiz' ? <><ListChecks size={12} /> {t('Quiz')}</> : it.type === 'lesson' ? <><PlayCircle size={12} /> {t('Lesson')}</> : it.code}
                   </span>
                   <span className="item-title">{it.title}</span>
                   <select className="select move-to" aria-label={`Move ${it.code} to milestone`} value={m._id} onChange={(e) => move(m._id, i, e.target.value, (lists[e.target.value] || []).length)}>
                     {milestones.map((x, xi) => <option key={x._id} value={x._id}>M{xi + 1}: {x.title.slice(0, 28)}</option>)}
                   </select>
                   <span className="outline-actions">
-                    <button className="btn btn-ghost icon-btn" aria-label="Move up" disabled={mi === 0 && i === 0} onClick={() => step(m._id, i, -1)}><ArrowUp size={15} /></button>
-                    <button className="btn btn-ghost icon-btn" aria-label="Move down" disabled={mi === milestones.length - 1 && i === list.length - 1} onClick={() => step(m._id, i, 1)}><ArrowDown size={15} /></button>
-                    <button className={`btn btn-sm pub-toggle ${it.isPublished ? 'on' : ''}`} onClick={() => togglePublish(m._id, it)} title={it.isPublished ? 'Visible to employees — click to hide' : 'Hidden (draft) — click to publish'}>
-                      {it.isPublished ? <><Eye size={14} /> Published</> : <><EyeOff size={14} /> Draft</>}
+                    <button className="btn btn-ghost icon-btn" aria-label={t('Move up')} disabled={mi === 0 && i === 0} onClick={() => step(m._id, i, -1)}><ArrowUp size={15} /></button>
+                    <button className="btn btn-ghost icon-btn" aria-label={t('Move down')} disabled={mi === milestones.length - 1 && i === list.length - 1} onClick={() => step(m._id, i, 1)}><ArrowDown size={15} /></button>
+                    <button className={`btn btn-sm pub-toggle ${it.isPublished ? 'on' : ''}`} onClick={() => togglePublish(m._id, it)} title={it.isPublished ? t('Visible to employees — click to hide') : t('Hidden (draft) — click to publish')}>
+                      {it.isPublished ? <><Eye size={14} /> {t('Published')}</> : <><EyeOff size={14} /> {t('Draft')}</>}
                     </button>
-                    <Link className="btn btn-ghost icon-btn" to={it.kind === 'quiz' ? `/quizzes/${it._id}/edit` : `/assignments/${it._id}/edit`} aria-label={`Edit ${it.code}`} title="Edit"><Pencil size={15} /></Link>
-                    {it.kind === 'assignment' ? <button className="btn btn-ghost icon-btn" aria-label={`Duplicate ${it.code}`} title="Duplicate" onClick={() => duplicate(m._id, i, it)}><Copy size={15} /></button> : <span className="icon-spacer" aria-hidden />}
-                    <button className="btn btn-ghost icon-btn danger-hover" aria-label={`Delete ${it.code}`} title="Delete" onClick={() => setConfirm({ mid: m._id, it })}><Trash2 size={15} /></button>
+                    <Link className="btn btn-ghost icon-btn" to={it.kind === 'quiz' ? `/quizzes/${it._id}/edit` : `/assignments/${it._id}/edit`} aria-label={`Edit ${it.code}`} title={t('Edit')}><Pencil size={15} /></Link>
+                    {it.kind === 'assignment' ? <button className="btn btn-ghost icon-btn" aria-label={`Duplicate ${it.code}`} title={t('Duplicate')} onClick={() => duplicate(m._id, i, it)}><Copy size={15} /></button> : <span className="icon-spacer" aria-hidden />}
+                    <button className="btn btn-ghost icon-btn danger-hover" aria-label={`Delete ${it.code}`} title={t('Delete')} onClick={() => setConfirm({ mid: m._id, it })}><Trash2 size={15} /></button>
                   </span>
                 </li>
               ))}
-              {!list.length && <li className={`outline-empty ${over && over.to === m._id ? 'drop-before' : ''}`}>Drop items here</li>}
+              {!list.length && <li className={`outline-empty ${over && over.to === m._id ? 'drop-before' : ''}`}>{t('Drop items here')}</li>}
             </ul>
           </section>
         );
       })}
-      <button className="btn" onClick={addMs}><Plus size={15} /> Add milestone</button>
-      {empty && <p className="small muted" style={{ marginTop: 8 }}>Empty milestones are kept — remove them with the bin icon if you don’t need them.</p>}
+      <button className="btn" onClick={addMs}><Plus size={15} /> {t('Add milestone')}</button>
+      {empty && <p className="small muted" style={{ marginTop: 8 }}>{t('Empty milestones are kept — remove them with the bin icon if you don’t need them.')}</p>}
 
       {confirm && (
         <div className="modal-back" onClick={() => setConfirm(null)}>
@@ -216,21 +218,21 @@ export default function CourseOutlineEditor({ course, assignments, quizzes, onCl
             {confirm.leave ? (
               <>
                 <h2 id="cf-title">Discard changes?</h2>
-                <p className="small">Your new order and milestone changes haven’t been saved.</p>
-                <div className="row"><span className="spacer" /><button className="btn" onClick={() => setConfirm(null)}>Keep editing</button><button className="btn btn-danger" onClick={onClose}>Discard</button></div>
+                <p className="small">{t('Your new order and milestone changes haven’t been saved.')}</p>
+                <div className="row"><span className="spacer" /><button className="btn" onClick={() => setConfirm(null)}>{t('Keep editing')}</button><button className="btn btn-danger" onClick={onClose}>{t('Discard')}</button></div>
               </>
             ) : (
               <>
                 <h2 id="cf-title">Delete {confirm.it.code}?</h2>
-                <p className="small"><strong>{confirm.it.title}</strong> and its attached files will be removed permanently.</p>
-                <p className="small muted">Items that already have submissions or quiz attempts can’t be deleted — unpublish them instead so employees’ grades are kept.</p>
+                <p className="small"><strong>{confirm.it.title}</strong> {t('and its attached files will be removed permanently.')}</p>
+                <p className="small muted">{t('Items that already have submissions or quiz attempts can’t be deleted — unpublish them instead so employees’ grades are kept.')}</p>
                 <ErrorBox>{confirm.error}</ErrorBox>
                 <div className="row">
                   <span className="spacer" />
-                  <button className="btn" onClick={() => setConfirm(null)}>Cancel</button>
+                  <button className="btn" onClick={() => setConfirm(null)}>{t('Cancel')}</button>
                   {confirm.error && confirm.it.isPublished
-                    ? <button className="btn btn-primary" onClick={async () => { await togglePublish(confirm.mid, confirm.it); setConfirm(null); }}><EyeOff size={14} /> Unpublish instead</button>
-                    : <button className="btn btn-danger" disabled={Boolean(confirm.error)} onClick={doDelete}><Trash2 size={14} /> Delete</button>}
+                    ? <button className="btn btn-primary" onClick={async () => { await togglePublish(confirm.mid, confirm.it); setConfirm(null); }}><EyeOff size={14} /> {t('Unpublish instead')}</button>
+                    : <button className="btn btn-danger" disabled={Boolean(confirm.error)} onClick={doDelete}><Trash2 size={14} /> {t('Delete')}</button>}
                 </div>
               </>
             )}

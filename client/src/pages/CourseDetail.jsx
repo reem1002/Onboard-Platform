@@ -10,6 +10,7 @@ import { Loader, ErrorBox, StatusChip, fmtDate, PageSkeleton } from '../componen
 import { useT } from '../lib/i18n';
 
 function EnrollModal({ courseId, onClose }) {
+  const t = useT();
   const { data } = useFetch('/users?role=employee&limit=100');
   const [picked, setPicked] = useState([]);
   const [dueAt, setDueAt] = useState('');
@@ -29,11 +30,11 @@ function EnrollModal({ courseId, onClose }) {
   return (
     <div className="modal-back" onClick={onClose}>
       <div className="modal stack" role="dialog" aria-modal="true" aria-labelledby="enroll-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="enroll-title">Assign this course</h2>
+        <h2 id="enroll-title">{t('Assign this course')}</h2>
         {msg.ok && <div className="alert alert-ok">{msg.ok}</div>}
         <ErrorBox>{msg.err}</ErrorBox>
         <div className="field">
-          <label htmlFor="due">Complete by (optional)</label>
+          <label htmlFor="due">{t('Complete by (optional)')}</label>
           <input id="due" type="date" className="input" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
         </div>
         <div className="card card-flush" style={{ maxHeight: 300, overflow: 'auto' }}>
@@ -47,7 +48,7 @@ function EnrollModal({ courseId, onClose }) {
         </div>
         <div className="row">
           <span className="spacer" />
-          <button className="btn" onClick={onClose}>Close</button>
+          <button className="btn" onClick={onClose}>{t('Close')}</button>
           <button className="btn btn-primary" disabled={!picked.length} onClick={save}>Assign to {picked.length || ''} selected</button>
         </div>
       </div>
@@ -154,9 +155,9 @@ export default function CourseDetail() {
               )))}
             {data.canEdit && (
               <div className="item-row add-row">
-                <Link to={`/courses/${course._id}/assignments/new?milestone=${m._id}`} className="btn btn-ghost btn-sm"><Plus size={15} /> Assignment</Link>
-                <Link to={`/courses/${course._id}/assignments/new?milestone=${m._id}&kind=lesson`} className="btn btn-ghost btn-sm"><PlayCircle size={15} /> Lesson / video</Link>
-                <Link to={`/courses/${course._id}/quizzes/new?milestone=${m._id}`} className="btn btn-ghost btn-sm"><ListChecks size={15} /> Quiz</Link>
+                <Link to={`/courses/${course._id}/assignments/new?milestone=${m._id}`} className="btn btn-ghost btn-sm"><Plus size={15} /> {t('Assignment')}</Link>
+                <Link to={`/courses/${course._id}/assignments/new?milestone=${m._id}&kind=lesson`} className="btn btn-ghost btn-sm"><PlayCircle size={15} /> {t('Lesson / video')}</Link>
+                <Link to={`/courses/${course._id}/quizzes/new?milestone=${m._id}`} className="btn btn-ghost btn-sm"><ListChecks size={15} /> {t('Quiz')}</Link>
               </div>
             )}
             {!items.length && !quizzes.length && !data.canEdit && <div className="item-row muted small">{t('Nothing here yet.')}</div>}

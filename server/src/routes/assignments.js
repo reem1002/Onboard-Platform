@@ -29,9 +29,11 @@ async function loadAssignment(user, id) {
 function studentView(sub) {
   const s = sub.toJSON();
   delete s.ai;
+  delete s.reviewDraft;
   if (s.status !== 'approved' && s.status !== 'returned') delete s.final;
   if (['ai_grading', 'ai_graded', 'ai_failed'].includes(s.status)) s.status = 'under_review';
   if (s.final) delete s.final.reviewedBy;
+  if (s.final?.overview) s.final.overview = String(s.final.overview).replaceAll('{{TOTAL}}', String(s.final.totalScore ?? ''));
   return s;
 }
 

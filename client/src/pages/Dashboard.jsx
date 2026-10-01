@@ -7,7 +7,7 @@ import { api, errorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox, Progress, fmtDate, Skeleton, SkeletonText } from '../components/ui';
 import { NotifIcon, timeAgo } from '../components/notifications';
-import { useT, dateLocale } from '../lib/i18n';
+import { useT, useI18n, dateLocale } from '../lib/i18n';
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -19,6 +19,7 @@ const hrs = (h) => (h === null || h === undefined ? '—' : h < 24 ? `${Math.rou
 export default function Dashboard() {
   const { user } = useAuth();
   const t = useT();
+  const { lang } = useI18n();
   const [home, setHome] = useState(null);
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
@@ -26,9 +27,10 @@ export default function Dashboard() {
   const load = useCallback(() => {
     setError('');
     api.get('/dashboard/home').then(({ data }) => setHome(data)).catch((e) => setError(errorMessage(e)));
-    api.get('/notifications', { params: { limit: 8 } }).then(({ data }) => setFeed(data)).catch(() => setFeed({ items: [], unread: 0 }));
+    api.get('/notifications', { params: { limit: 8, lang: document.documentElement.lang === 'ar' ? 'ar' : 'en' } }).then(({ data }) => setFeed(data)).catch(() => setFeed({ items: [], unread: 0 }));
   }, []);
   useEffect(() => { setHome(null); load(); }, [load, user._id]);
+  useEffect(() => { api.get('/notifications', { params: { limit: 8, lang } }).then(({ data }) => setFeed(data)).catch(() => {}); }, [lang]);
 
   const markAll = async () => {
     await api.post('/notifications/read', {}).catch(() => {});
@@ -86,8 +88,9 @@ export default function Dashboard() {
 }
 
 function DashSkeleton() {
+  const t = useT();
   return (
-    <div className="dash" role="status" aria-label="Loading dashboard">
+    <div className="dash" role="status" aria-label={t('Loading dashboard')}>
       <div className="dash-main">
         <div className="stats">{[0, 1, 2, 3].map((i) => <div key={i} className="stat skel-tile"><Skeleton w={60} h={30} /><Skeleton w="70%" h={12} style={{ marginTop: 10 }} /></div>)}</div>
         {[3, 2].map((n, i) => (
@@ -153,10 +156,10 @@ function EmployeeHome({ d }) {
   return (
     <>
       <div className="stats">
-        <Stat label="Courses" value={s.courses} />
-        <Stat label="Overall progress" value={`${Math.round(s.avgPct)}%`} />
-        <Stat label="Average grade" value={n(s.avgScore)} hint={s.avgScore === null ? 'No graded work yet' : 'out of 100'} />
-        <Stat label="Under review" value={s.underReview} />
+        <Stat label={t('Courses')} value={s.courses} />
+        <Stat label={t('Overall progress')} value={`${Math.round(s.avgPct)}%`} />
+        <Stat label={t('Average grade')} value={n(s.avgScore)} hint={s.avgScore === null ? t('No graded work yet') : t('out of 100')} />
+        <Stat label={t('Under review')} value={s.underReview} />
       </div>
 
       {d.toFix.length > 0 && (
@@ -164,19 +167,19 @@ function EmployeeHome({ d }) {
           <div className="row"><RotateCcw size={18} /><h2 className="h-card">{t('Returned for rework')}</h2></div>
           <p className="small" style={{ margin: '6px 0 var(--sp-2)' }}>{t('Your instructor asked for changes. Read the feedback, update your work and resubmit.')}</p>
           <ul className="list-links">
-            {d.toFix.map((t) => <li key={t.link}><Link to={t.link}><span className="item-code">{t.code}</span> {t.title}<ArrowRight size={14} /></Link></li>)}
+            {d.toFix.map((it) => <li key={it.link}><Link to={it.link}><span className="item-code">{it.code}</span> {it.title}<ArrowRight size={14} /></Link></li>)}
           </ul>
         </section>
       )}
 
       {d.upNext.length > 0 && (
-        <Section title="Up next">
+        <Section title={t('Up next')}>
           <ul className="list-links">
-            {d.upNext.map((t) => (
-              <li key={t.link}>
-                <Link to={t.link}>
-                  <span className="item-code">{t.code}</span>
-                  <span className="grow">{t.title}<span className="muted small"> · {t.courseCode}</span></span>
+            {d.upNext.map((it) => (
+              <li key={it.link}>
+                <Link to={it.link}>
+                  <span className="item-code">{it.code}</span>
+                  <span className="grow">{it.title}<span className="muted small"> · {it.courseCode}</span></span>
                   <ArrowRight size={14} />
                 </Link>
               </li>
@@ -185,7 +188,7 @@ function EmployeeHome({ d }) {
         </Section>
       )}
 
-      <Section title="My courses" action={<ViewAll to="/courses" />}>
+      <Section title={t('My courses')} action={<ViewAll to="/courses" />}>
         {d.courses.length === 0 ? <p className="muted small">{t('When your company assigns you a course it will appear here.')}</p> : (
           <div className="dash-courses">
             {d.courses.map((c) => (
@@ -203,7 +206,7 @@ function EmployeeHome({ d }) {
         )}
       </Section>
 
-      <Section title="Recent grades">
+      <Section title={t('Recent grades')}>
         {d.recentGrades.length === 0 ? <p className="muted small">{t('Graded work and feedback will appear here.')}</p> : (
           <ul className="list-links">
             {d.recentGrades.map((g) => (
@@ -245,34 +248,33 @@ function InstructorHome({ d }) {
   return (
     <>
       <div className="stats">
-        <Stat label="Waiting for review" value={s.toReview} />
-        <Stat label="Needs manual grading" value={s.aiFailed} hint={s.aiFailed ? 'AI couldn’t grade these' : undefined} />
-        <Stat label="Open questions" value={s.openQuestions} />
-        <Stat label="Reviewed this week" value={s.reviewedThisWeek} hint={t('Avg turnaround {x}', { x: hrs(s.avgTurnaroundHours) })} />
+        <Stat label={t('Waiting for review')} value={s.toReview} />
+        <Stat label={t('Needs manual grading')} value={s.aiFailed} hint={s.aiFailed ? 'AI couldn’t grade these' : undefined} />
+        <Stat label={t('Open questions')} value={s.openQuestions} />
+        <Stat label={t('Reviewed this week')} value={s.reviewedThisWeek} hint={t('Avg turnaround {x}', { x: hrs(s.avgTurnaroundHours) })} />
       </div>
 
-      <Section title="Review queue" action={<ViewAll to="/review" />}>
-        {d.queue.length === 0 ? <p className="muted small">Nothing waiting. New submissions show up here as soon as the AI draft is ready.</p> : (
-          <table className="table">
-            <thead><tr><th>{t('Employee')}</th><th>{t('Item')}</th><th>{t('Status')}</th><th>{t('AI draft')}</th><th>{t('Waiting')}</th><th /></tr></thead>
-            <tbody>
-              {d.queue.map((q) => (
-                <tr key={q._id}>
-                  <td data-label="Employee">{q.student}</td>
-                  <td data-label="Item"><span className="item-code">{q.code}</span> <span className="small">{q.title}</span></td>
-                  <td data-label="Status">{q.status === 'ai_failed' ? <span className="chip chip-danger">Manual grading</span> : q.status === 'ai_graded' ? <span className="chip chip-info"><Sparkles size={12} /> AI draft ready</span> : <span className="chip chip-warn">Submitted</span>}</td>
-                  <td data-label="AI draft">{n(q.aiScore)}</td>
-                  <td data-label="Waiting"><span className={q.waitingHours > 48 ? 'text-danger' : ''}>{hrs(q.waitingHours)}</span></td>
-                  <td><Link to={q.link} className="btn btn-sm">Review</Link></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <Section title={t('Review queue')} action={<ViewAll to="/review" />}>
+        {d.queue.length === 0 ? <p className="muted small">{t('Nothing waiting. New submissions show up here as soon as the AI draft is ready.')}</p> : (
+          <ul className="dash-queue">
+            {d.queue.map((q) => (
+              <li key={q._id}>
+                <Link to={q.link} className="dq-main">
+                  <span className="dq-top"><span className="item-code">{q.code}</span><span className="dq-title" dir="auto" title={q.title}>{q.title}</span></span>
+                  <span className="small muted">{q.student} · <span className={q.waitingHours > 48 ? 'text-danger' : ''}>{t('waiting {x}', { x: hrs(q.waitingHours) })}</span></span>
+                </Link>
+                {q.status === 'ai_failed' ? <span className="ai-pill manual">{t('Grade manually')}</span>
+                  : q.aiScore != null ? <span className="ai-pill"><Sparkles size={12} /> <b>{q.aiScore}</b></span>
+                    : <span className="chip chip-warn">{t('Submitted')}</span>}
+                <Link to={q.link} className="btn btn-sm">{t('Review')}</Link>
+              </li>
+            ))}
+          </ul>
         )}
       </Section>
 
-      <Section title="My courses">
-        {d.courses.length === 0 ? <p className="muted small">An administrator hasn’t assigned you to a course yet.</p> : (
+      <Section title={t('My courses')}>
+        {d.courses.length === 0 ? <p className="muted small">{t('An administrator hasn’t assigned you to a course yet.')}</p> : (
           <table className="table">
             <thead><tr><th>{t('Course')}</th><th>{t('Employees')}</th><th>{t('Avg progress')}</th><th>{t('Avg grade')}</th><th>{t('Pending')}</th></tr></thead>
             <tbody>
@@ -290,8 +292,8 @@ function InstructorHome({ d }) {
         )}
       </Section>
 
-      <Section title="Employees who may need help">
-        <PeopleList rows={d.atRisk} empty="No one is behind right now." showCompany />
+      <Section title={t('Employees who may need help')}>
+        <PeopleList rows={d.atRisk} empty={t('No one is behind right now.')} showCompany />
       </Section>
     </>
   );
@@ -326,10 +328,10 @@ function CompanyHome({ d }) {
   return (
     <>
       <div className="stats">
-        <Stat label="Active employees" value={s.employees} />
-        <Stat label="Average progress" value={`${Math.round(s.avgPct)}%`} />
-        <Stat label="Courses completed" value={s.completedCourses} />
-        <Stat label="Need attention" value={s.needsAttention} />
+        <Stat label={t('Active employees')} value={s.employees} />
+        <Stat label={t('Average progress')} value={`${Math.round(s.avgPct)}%`} />
+        <Stat label={t('Courses completed')} value={s.completedCourses} />
+        <Stat label={t('Need attention')} value={s.needsAttention} />
       </div>
 
       <section className="card seats-card">
@@ -343,7 +345,7 @@ function CompanyHome({ d }) {
         {seatPct >= 90 && <p className="small" style={{ marginTop: 6 }}><Info size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {t('You’re close to your limit — contact us through Support to add seats.')}</p>}
       </section>
 
-      <Section title="Progress by course" action={<ViewAll to="/team">Team progress</ViewAll>}>
+      <Section title={t('Progress by course')} action={<ViewAll to="/team">{t('Team progress')}</ViewAll>}>
         {d.courses.length === 0 ? <p className="muted small">{t('Assign a course to your employees from the Courses page.')}</p> : (
           <div className="hbars" role="list">
             {d.courses.map((c) => (
@@ -357,11 +359,11 @@ function CompanyHome({ d }) {
         )}
       </Section>
 
-      <Section title="Needs your attention">
-        <PeopleList rows={d.attention} empty="Everyone is on track." />
+      <Section title={t('Needs your attention')}>
+        <PeopleList rows={d.attention} empty={t('Everyone is on track.')} />
       </Section>
 
-      <Section title="Latest graded work" action={<ViewAll to="/reports/shared">Shared reports</ViewAll>}>
+      <Section title={t('Latest graded work')} action={<ViewAll to="/reports/shared">{t('Shared reports')}</ViewAll>}>
         {d.recentResults.length === 0 ? <p className="muted small">{t('Grades appear here once an instructor approves them.')}</p> : (
           <ul className="list-links">
             {d.recentResults.map((r, i) => (
@@ -387,10 +389,10 @@ function AdminHome({ d }) {
   return (
     <>
       <div className="stats">
-        <Stat label="Companies" value={s.companies} hint={`${s.seatsUsed} / ${s.seatsTotal} seats used`} />
-        <Stat label="Pending review" value={s.pendingReview} />
-        <Stat label="Graded this week" value={s.gradedWeek} hint={`Avg grade ${n(s.avgGradeWeek)}`} />
-        <Stat label="Open support" value={s.openPlatformTickets} hint={s.avgFirstResponseHours === null ? 'No replies in 30 days' : `Avg first reply ${hrs(s.avgFirstResponseHours)}`} />
+        <Stat label={t('Companies')} value={s.companies} hint={`${s.seatsUsed} / ${s.seatsTotal} seats used`} />
+        <Stat label={t('Pending review')} value={s.pendingReview} />
+        <Stat label={t('Graded this week')} value={s.gradedWeek} hint={`Avg grade ${n(s.avgGradeWeek)}`} />
+        <Stat label={t('Open support')} value={s.openPlatformTickets} hint={s.avgFirstResponseHours === null ? 'No replies in 30 days' : `Avg first reply ${hrs(s.avgFirstResponseHours)}`} />
       </div>
 
       {d.alerts.length > 0 && (
@@ -404,19 +406,19 @@ function AdminHome({ d }) {
         </section>
       )}
 
-      <Section title="Submissions — last 14 days" action={<span className="small muted">{s.submissionsWeek} this week</span>}>
+      <Section title={t('Submissions — last 14 days')} action={<span className="small muted">{s.submissionsWeek} this week</span>}>
         <BarChart data={d.activity} />
       </Section>
 
-      <Section title="Grading backlog by course" action={<ViewAll to="/review">Review queue</ViewAll>}>
-        {d.backlog.length === 0 ? <p className="muted small">No backlog — every submission has been reviewed.</p> : (
+      <Section title={t('Grading backlog by course')} action={<ViewAll to="/review">{t('Review queue')}</ViewAll>}>
+        {d.backlog.length === 0 ? <p className="muted small">{t('No backlog — every submission has been reviewed.')}</p> : (
           <table className="table">
             <thead><tr><th>{t('Course')}</th><th>{t('Instructors')}</th><th>{t('Pending')}</th><th>{t('Oldest')}</th></tr></thead>
             <tbody>
               {d.backlog.map((b) => (
                 <tr key={b._id}>
                   <td data-label="Course"><Link to={`/courses/${b._id}`}><strong>{b.code}</strong></Link></td>
-                  <td data-label="Instructors">{b.instructors.join(', ') || <span className="chip chip-danger">None assigned</span>}</td>
+                  <td data-label="Instructors">{b.instructors.join(', ') || <span className="chip chip-danger">{t('None assigned')}</span>}</td>
                   <td data-label="Pending">{b.pending}</td>
                   <td data-label="Oldest"><span className={b.oldestHours > 48 ? 'text-danger' : ''}><Clock size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {hrs(b.oldestHours)}</span></td>
                 </tr>
@@ -427,10 +429,10 @@ function AdminHome({ d }) {
       </Section>
 
       <div className="stats stats-quiet">
-        <Stat label="Active employees" value={s.employees} />
-        <Stat label="Instructors" value={s.instructors} />
-        <Stat label="Published courses" value={s.coursesPublished} />
-        <Stat label="Unanswered > 24 h" value={s.unansweredOver24h} />
+        <Stat label={t('Active employees')} value={s.employees} />
+        <Stat label={t('Instructors')} value={s.instructors} />
+        <Stat label={t('Published courses')} value={s.coursesPublished} />
+        <Stat label={t('Unanswered > 24 h')} value={s.unansweredOver24h} />
       </div>
     </>
   );
@@ -438,6 +440,7 @@ function AdminHome({ d }) {
 
 /** Single-series bar chart (one hue, value on hover, peak labelled). */
 function BarChart({ data }) {
+  const t = useT();
   const [hover, setHover] = useState(null);
   const max = Math.max(1, ...data.map((d) => d.count));
   const W = 560; const H = 120; const pad = 22; const gap = 4;
@@ -460,7 +463,7 @@ function BarChart({ data }) {
           );
         })}
         <text x="0" y={H + 16} className="tick">{fmt(data[0].date)}</text>
-        <text x={W} y={H + 16} textAnchor="end" className="tick">Today</text>
+        <text x={W} y={H + 16} textAnchor="end" className="tick">{t('Today')}</text>
       </svg>
       {hover !== null && (
         <div className="chart-tip" style={{ left: `${((hover * (bw + gap) + bw / 2) / W) * 100}%` }}>

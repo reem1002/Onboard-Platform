@@ -953,6 +953,38 @@ describe('in-house AI grading pipeline', () => {
     expect(await Notification.exists({ title: 'Grade manually: AI-1' })).toBeTruthy();
   });
 
+  test('review drafts autosave privately; approval keeps the overview total in step; notifications translate', async () => {
+    const ins = await login('instr@lms.test');
+    const auth = { Authorization: `Bearer ${ins.token}` };
+    const rubric = asg.rubric;
+    await Submission.updateOne({ _id: s1._id }, { status: 'ai_graded', 'ai.overview': "Copy's AI-1 submission earned {{TOTAL}}/100 — solid." });
+    const crit = [{ criterionId: String(rubric[0]._id), score: 50 }, { criterionId: String(rubric[1]._id), score: 100 }];
+    const d = await request(app).put(`/api/submissions/${s1._id}/draft`).set(auth).send({ criteria: crit, overview: 'Draft earned 10/100 — wip.' });
+    expect(d.status).toBe(200);
+    const staff = await request(app).get(`/api/submissions/${s1._id}`).set(auth);
+    expect(staff.body.submission.reviewDraft.overview).toMatch(/wip/);
+    const me = await login(emp.email);
+    const mine = await request(app).get(`/api/submissions/${s1._id}`).set('Authorization', `Bearer ${me.token}`);
+    expect(mine.body.submission.reviewDraft).toBeUndefined();
+    const q = await request(app).get('/api/submissions/queue').set(auth);
+    expect(q.body.items.find((x) => String(x._id) === String(s1._id)).reviewDraft).toBeUndefined();
+    const ok = await request(app).post(`/api/submissions/${s1._id}/review`).set(auth).send({ decision: 'approve', criteria: crit, overview: 'Report earned {{TOTAL}}/100 — good. Earlier it earned 10/100.' });
+    expect(ok.status).toBe(200);
+    expect(ok.body.submission.final.totalScore).toBe(70);
+    expect(ok.body.submission.final.overview).toBe('Report earned 70/100 — good. Earlier it earned 10/100.');
+    expect(ok.body.submission.reviewDraft).toBeUndefined();
+    await request(app).put(`/api/submissions/${s1._id}/draft`).set(auth).send({ overview: 'x' }).expect(409);
+    const ar = await request(app).get('/api/notifications?lang=ar').set('Authorization', `Bearer ${me.token}`);
+    expect(ar.body.items.some((n) => n.title === 'AI-1 صُحّحت: 70/100')).toBe(true);
+    const en = await request(app).get('/api/notifications').set('Authorization', `Bearer ${me.token}`);
+    expect(en.body.items.some((n) => n.title === 'AI-1 graded: 70/100')).toBe(true);
+  });
+
+  test('OCR helpers keep real words and drop icon noise', () => {
+    const { clean } = require('../src/services/ocr');
+    expect(clean('|| =. ~\nRule level 12 on web-01\n— —')).toBe('Rule level 12 on web-01');
+  });
+
   test('platform admin can switch the engine and see AI status', async () => {
     const root = await login('root@lms.test');
     await request(app).put('/api/settings').set('Authorization', `Bearer ${root.token}`).send({ ai: { provider: 'claude' } }).expect(400); // no API key in tests

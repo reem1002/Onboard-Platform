@@ -6,11 +6,13 @@ import { api, errorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { Loader, ErrorBox, PageSkeleton } from '../components/ui';
 import { TICKET_STATUS } from './Support';
+import { useT } from '../lib/i18n';
 
 const ROLE = { super_admin: 'Platform support', instructor: 'Instructor', company_admin: 'Company admin', employee: 'Employee' };
 const when = (d) => new Date(d).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
 export default function SupportTicket() {
+  const t = useT();
   const { id } = useParams();
   const { user } = useAuth();
   const { data, error, loading, reload } = useFetch(`/support/${id}`);
@@ -21,7 +23,7 @@ export default function SupportTicket() {
 
   if (loading) return <PageSkeleton variant="detail" />;
   if (error) return <div className="page"><ErrorBox>{error}</ErrorBox></div>;
-  const t = data.ticket;
+  const tk = data.ticket;
 
   const act = async (fn) => {
     setBusy(true);
@@ -35,25 +37,25 @@ export default function SupportTicket() {
 
   return (
     <div className="page" style={{ maxWidth: 980 }}>
-      <Link to="/support" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> All requests</Link>
+      <Link to="/support" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> {t('All requests')}</Link>
       <div className="page-head" style={{ marginTop: 8 }}>
         <div>
-          <span className="small muted">#{t.number} · {t.channel === 'course' ? `Course question${t.course ? ` · ${t.course.code}` : ''}` : 'Platform support'}{t.assignment ? ` · ${t.assignment.code}` : ''}</span>
-          <h1 style={{ fontSize: 'var(--fs-lg)' }}>{t.subject}</h1>
-          <p className="small">{t.requester?.name}{t.company?.name ? ` · ${t.company.name}` : ''}</p>
+          <span className="small muted">#{tk.number} · {tk.channel === 'course' ? `Course question${tk.course ? ` · ${tk.course.code}` : ''}` : 'Platform support'}{tk.assignment ? ` · ${tk.assignment.code}` : ''}</span>
+          <h1 style={{ fontSize: 'var(--fs-lg)' }}>{tk.subject}</h1>
+          <p className="small">{tk.requester?.name}{tk.company?.name ? ` · ${tk.company.name}` : ''}</p>
         </div>
         <span className="spacer" />
-        <span className={`chip ${TICKET_STATUS[t.status][1]}`}>{TICKET_STATUS[t.status][0]}</span>
+        <span className={`chip ${TICKET_STATUS[tk.status][1]}`}>{t(TICKET_STATUS[tk.status][0])}</span>
       </div>
       <ErrorBox>{err}</ErrorBox>
 
       <div className="thread">
-        {t.messages.map((m) => {
+        {tk.messages.map((m) => {
           const mine = String(m.author?._id) === String(user._id);
           const fromStaff = ['super_admin', 'instructor'].includes(m.author?.role);
           return (
             <div key={m._id} className={`msg ${mine ? 'mine' : ''} ${fromStaff ? 'staff' : ''}`}>
-              <div className="msg-head"><strong>{mine ? 'You' : m.author?.name}</strong><span className="muted small">{ROLE[m.author?.role]} · {when(m.createdAt)}</span></div>
+              <div className="msg-head"><strong>{mine ? t('You') : m.author?.name}</strong><span className="muted small">{t(ROLE[m.author?.role] || '')} · {when(m.createdAt)}</span></div>
               <p>{m.body}</p>
             </div>
           );
@@ -61,19 +63,19 @@ export default function SupportTicket() {
       </div>
 
       <form className="card stack" onSubmit={send} style={{ marginTop: 'var(--sp-3)' }}>
-        <label htmlFor="rep" className="small" style={{ fontWeight: 600 }}>{t.status === 'resolved' ? 'Reply to reopen this request' : 'Reply'}</label>
-        <textarea id="rep" className="textarea" style={{ minHeight: 110 }} maxLength={5000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={staff ? 'Write your answer…' : 'Add more details or reply…'} />
+        <label htmlFor="rep" className="small" style={{ fontWeight: 600 }}>{tk.status === 'resolved' ? 'Reply to reopen this request' : 'Reply'}</label>
+        <textarea id="rep" className="textarea" style={{ minHeight: 110 }} maxLength={5000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder={staff ? t('Write your answer…') : t('Add more details or reply…')} />
         <div className="row">
           {staff && (
-            <select className="select" style={{ width: 'auto' }} aria-label="Priority" value={t.priority} onChange={(e) => act(() => api.patch(`/support/${id}`, { priority: e.target.value }))}>
+            <select className="select" style={{ width: 'auto' }} aria-label={t('Priority')} value={tk.priority} onChange={(e) => act(() => api.patch(`/support/${id}`, { priority: e.target.value }))}>
               {['low', 'normal', 'high', 'urgent'].map((p) => <option key={p} value={p}>Priority: {p}</option>)}
             </select>
           )}
           <span className="spacer" />
-          {t.status !== 'resolved'
-            ? <button type="button" className="btn" disabled={busy} onClick={() => act(() => api.patch(`/support/${id}`, { status: 'resolved' }))}><CheckCircle2 size={15} /> Mark resolved</button>
-            : <button type="button" className="btn" disabled={busy} onClick={() => act(() => api.patch(`/support/${id}`, { status: 'open' }))}><RotateCcw size={15} /> Reopen</button>}
-          <button className="btn btn-primary" disabled={busy || !reply.trim()}><Send size={15} /> Send</button>
+          {tk.status !== 'resolved'
+            ? <button type="button" className="btn" disabled={busy} onClick={() => act(() => api.patch(`/support/${id}`, { status: 'resolved' }))}><CheckCircle2 size={15} /> {t('Mark resolved')}</button>
+            : <button type="button" className="btn" disabled={busy} onClick={() => act(() => api.patch(`/support/${id}`, { status: 'open' }))}><RotateCcw size={15} /> {t('Reopen')}</button>}
+          <button className="btn btn-primary" disabled={busy || !reply.trim()}><Send size={15} /> {t('Send')}</button>
         </div>
       </form>
     </div>

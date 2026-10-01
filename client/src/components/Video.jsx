@@ -1,3 +1,4 @@
+import { useT } from '../lib/i18n';
 /**
  * Turn a video link into something safe to embed.
  * Only known providers become iframes (with a URL we build from the parsed id —
@@ -33,6 +34,7 @@ export function parseVideo(raw) {
 }
 
 export function VideoEmbed({ video }) {
+  const t = useT();
   const v = parseVideo(video.url);
   return (
     <figure className="video">
@@ -58,7 +60,7 @@ export function VideoEmbed({ video }) {
       {v.type === 'link' && (
         <a className="file-link" href={v.src} target="_blank" rel="noopener noreferrer"><span>Open video on {v.provider} ↗</span></a>
       )}
-      {v.type === 'invalid' && <p className="small muted">This video link isn’t valid.</p>}
+      {v.type === 'invalid' && <p className="small muted">{t('This video link isn’t valid.')}</p>}
       {(video.title || video.note) && (
         <figcaption>
           {video.title && <strong>{video.title}</strong>}

@@ -77,6 +77,9 @@ const submissionSchema = new Schema(
       gradedAt: Date,
     },
 
+    // Instructor's unsent edits (scores + feedback). Staff only; cleared on approve/return/regrade.
+    reviewDraft: { type: Schema.Types.Mixed },
+
     // What the student receives after instructor approval
     final: {
       criteria: [criterionScoreSchema],

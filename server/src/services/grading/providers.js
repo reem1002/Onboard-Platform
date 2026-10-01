@@ -11,35 +11,58 @@ function ollamaProvider({ model, numCtx = 8192, timeoutMs = 15 * 60 * 1000 }) {
   return {
     id: 'local',
     model,
-    async complete({ system, prompt, schema, temperature = 0.2 }) {
-      let res;
-      try {
-        res = await fetch(`${base}/api/chat`, {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          signal: AbortSignal.timeout(timeoutMs),
-          body: JSON.stringify({
-            model,
-            stream: false,
-            format: schema,
-            keep_alive: '10m',
-            options: { temperature, num_ctx: numCtx },
-            messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
-          }),
-        });
-      } catch (e) {
-        throw new Error(e.name === 'TimeoutError' ? 'Local AI took too long (timeout)' : `Local AI (Ollama) is not reachable at ${base} — is it running?`);
+    async complete({ system, prompt, schema, temperature = 0.2, maxTokens = 900 }) {
+      // Small models sometimes loop ("token repeat limit reached") or break the JSON. Retry with more variety.
+      let lastErr;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          return await once({ system, prompt, schema, maxTokens, temperature: Math.min(1, temperature + attempt * 0.3), repeatPenalty: 1.15 + attempt * 0.15 });
+        } catch (e) {
+          lastErr = e;
+          if (!e.retryable) throw e;
+        }
       }
-      if (res.status === 404) throw new Error(`Model "${model}" is not installed — run: ollama pull ${model}`);
-      if (!res.ok) throw new Error(`Local AI error ${res.status}: ${(await res.text()).slice(0, 200)}`);
-      const data = await res.json();
-      try {
-        return JSON.parse(data.message?.content || '');
-      } catch {
-        throw new Error('Local AI returned invalid JSON');
-      }
+      throw lastErr;
     },
   };
+
+  async function once({ system, prompt, schema, temperature, maxTokens, repeatPenalty }) {
+    let res;
+    try {
+      res = await fetch(`${base}/api/chat`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        signal: AbortSignal.timeout(timeoutMs),
+        body: JSON.stringify({
+          model,
+          stream: false,
+          format: schema,
+          keep_alive: '10m',
+          options: { temperature, num_ctx: numCtx, num_predict: maxTokens, repeat_penalty: repeatPenalty, repeat_last_n: 128 },
+          messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
+        }),
+      });
+    } catch (e) {
+      throw new Error(e.name === 'TimeoutError' ? 'Local AI took too long (timeout)' : `Local AI (Ollama) is not reachable at ${base} — is it running?`);
+    }
+    if (res.status === 404) throw new Error(`Model "${model}" is not installed — run: ollama pull ${model}`);
+    if (!res.ok) {
+      const body = (await res.text()).slice(0, 200);
+      const err = /repeat|repetit/i.test(body)
+        ? new Error('The model got stuck repeating itself (Ollama stopped it). Retrying usually works; a bigger model avoids it.')
+        : new Error(`Local AI error ${res.status}: ${body}`);
+      err.retryable = /repeat|repetit/i.test(body) || res.status >= 500;
+      throw err;
+    }
+    const data = await res.json();
+    try {
+      return JSON.parse(data.message?.content || '');
+    } catch {
+      const err = new Error(data.done_reason === 'length' ? 'Local AI answer was cut off (too long)' : 'Local AI returned invalid JSON');
+      err.retryable = true;
+      throw err;
+    }
+  }
 }
 
 function claudeProvider({ model = env.AI_MODEL } = {}) {

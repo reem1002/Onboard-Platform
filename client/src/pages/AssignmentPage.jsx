@@ -8,6 +8,7 @@ import { AttachmentList } from '../components/Attachments';
 import { FileViewerModal } from '../components/FileViewer';
 import { useAuth } from '../context/AuthContext';
 import AssignmentBrief from '../components/AssignmentBrief';
+import { syncTotal } from '../components/FeedbackView';
 import { ErrorBox, StatusChip, fmtDate, PageSkeleton, UploadProgress, fmtBytes } from '../components/ui';
 import { useT } from '../lib/i18n';
 
@@ -135,7 +136,7 @@ function MySubmissions({ subs }) {
           {s.final && (
             <div className="stack">
               <div className="row"><span className="total">{s.final.totalScore}</span><span className="muted">/ 100</span></div>
-              {s.final.overview && <p className="small">{s.final.overview}</p>}
+              {s.final.overview && <p className="small">{syncTotal(s.final.overview, s.final.totalScore)}</p>}
               <div className="row">
                 <Link className="btn btn-primary btn-sm" to={`/feedback/${s._id}`}><MessageSquareText size={14} /> {t('View full feedback')}</Link>
                 <button className="btn btn-sm" onClick={() => downloadFeedbackPdf(s._id)}><FileDown size={14} /> PDF</button>

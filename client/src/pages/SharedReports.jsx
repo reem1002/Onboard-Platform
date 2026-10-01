@@ -4,9 +4,11 @@ import { api, errorMessage } from '../api/client';
 import { downloadSavedReport } from '../api/files';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox, Loader, fmtDate } from '../components/ui';
+import { useT } from '../lib/i18n';
 
 /** Progress reports the training team saved and shared. Company admins get PDF; staff also get Word. */
 export default function SharedReports() {
+  const t = useT();
   const { user } = useAuth();
   const staff = ['super_admin', 'instructor'].includes(user.role);
   const [reports, setReports] = useState(null);
@@ -19,8 +21,8 @@ export default function SharedReports() {
   }, []);
 
   const rows = useMemo(() => {
-    const t = q.trim().toLowerCase();
-    return (reports || []).filter((r) => !t || `${r.student?.name} ${r.course?.code} ${r.course?.title}`.toLowerCase().includes(t));
+    const needle = q.trim().toLowerCase();
+    return (reports || []).filter((r) => !needle || `${r.student?.name} ${r.course?.code} ${r.course?.title}`.toLowerCase().includes(needle));
   }, [reports, q]);
 
   const dl = async (id, format) => {
@@ -33,28 +35,28 @@ export default function SharedReports() {
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>Progress reports</h1>
-          <p>{staff ? 'Reports you and other instructors have shared with customer companies.' : 'Official progress reports shared by your training team. Each one is a signed-off snapshot — download it as PDF to forward or file.'}</p>
+          <h1>{t('Progress reports')}</h1>
+          <p>{staff ? t('Reports you and other instructors have shared with customer companies.') : t('Official progress reports shared by your training team. Each one is a signed-off snapshot — download it as PDF to forward or file.')}</p>
         </div>
       </div>
       <ErrorBox>{err}</ErrorBox>
       {!reports ? (!err && <div className="card"><Loader rows={4} /></div>) : reports.length === 0 ? (
         <div className="card empty">
           <FileText size={28} style={{ margin: '0 auto 8px' }} />
-          <p>No reports have been shared yet.{staff ? ' Open an employee’s progress report and choose “Share with company”.' : ' You’ll get a notification when your instructor shares one.'}</p>
+          <p>No reports have been shared yet.{staff ? t(' Open an employee’s progress report and choose “Share with company”.') : t(' You’ll get a notification when your instructor shares one.')}</p>
         </div>
       ) : (
         <div className="card card-flush">
           <div className="row" style={{ padding: 'var(--sp-3)' }}>
             <div className="search">
               <Search size={15} />
-              <input className="input" placeholder="Search by employee or course" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Search reports" />
+              <input className="input" placeholder={t('Search by employee or course')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('Search reports')} />
             </div>
             <span className="spacer" />
-            <span className="small muted">{rows.length} report{rows.length === 1 ? '' : 's'}</span>
+            <span className="small muted">{t('{n} report(s)', { n: rows.length })}</span>
           </div>
           <table className="table">
-            <thead><tr><th>Employee</th><th>Course</th><th>Shared</th><th>By</th><th /></tr></thead>
+            <thead><tr><th>{t('Employee')}</th><th>{t('Course')}</th><th>{t('Shared')}</th><th>{t('By')}</th><th /></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r._id}>

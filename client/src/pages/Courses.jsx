@@ -9,6 +9,7 @@ import { useT } from '../lib/i18n';
 
 /** Platform admin: create a course shell (milestones), then add assignments inside it. */
 function NewCourseModal({ onClose }) {
+  const t = useT();
   const nav = useNavigate();
   const [f, setF] = useState({ code: '', title: '', summary: '', milestones: 'Milestone 1\nMilestone 2\nMilestone 3' });
   const [err, setErr] = useState('');
@@ -16,7 +17,7 @@ function NewCourseModal({ onClose }) {
     e.preventDefault();
     setErr('');
     try {
-      const milestones = f.milestones.split('\n').map((t) => t.trim()).filter(Boolean).map((title, order) => ({ title, order }));
+      const milestones = f.milestones.split('\n').map((x) => x.trim()).filter(Boolean).map((title, order) => ({ title, order }));
       const { data } = await api.post('/courses', { code: f.code, title: f.title, summary: f.summary || undefined, milestones, isPublished: false });
       nav(`/courses/${data.course._id}`);
     } catch (e2) {
@@ -26,16 +27,16 @@ function NewCourseModal({ onClose }) {
   return (
     <div className="modal-back" onClick={onClose}>
       <form className="modal stack" role="dialog" aria-modal="true" aria-labelledby="nc-title" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h2 id="nc-title">New course</h2>
+        <h2 id="nc-title">{t('New course')}</h2>
         <ErrorBox>{err}</ErrorBox>
         <div className="grid-form">
-          <div className="field"><label htmlFor="cc">Code</label><input id="cc" className="input" required placeholder="SOC-L1-2026" value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
-          <div className="field"><label htmlFor="ct">Title</label><input id="ct" className="input" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
+          <div className="field"><label htmlFor="cc">{t('Code')}</label><input id="cc" className="input" required placeholder={t('SOC-L1-2026')} value={f.code} onChange={(e) => setF({ ...f, code: e.target.value })} /></div>
+          <div className="field"><label htmlFor="ct">{t('Title')}</label><input id="ct" className="input" required value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></div>
         </div>
-        <div className="field"><label htmlFor="cs">Summary</label><textarea id="cs" className="textarea" value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></div>
-        <div className="field"><label htmlFor="cm">Milestones (one per line)</label><textarea id="cm" className="textarea" style={{ minHeight: 110 }} value={f.milestones} onChange={(e) => setF({ ...f, milestones: e.target.value })} /></div>
-        <p className="small muted">The course starts as a draft. Assign instructors under Instructors, then publish it when the assignments are ready.</p>
-        <div className="row"><span className="spacer" /><button type="button" className="btn" onClick={onClose}>Cancel</button><button className="btn btn-primary">Create course</button></div>
+        <div className="field"><label htmlFor="cs">{t('Summary')}</label><textarea id="cs" className="textarea" value={f.summary} onChange={(e) => setF({ ...f, summary: e.target.value })} /></div>
+        <div className="field"><label htmlFor="cm">{t('Milestones (one per line)')}</label><textarea id="cm" className="textarea" style={{ minHeight: 110 }} value={f.milestones} onChange={(e) => setF({ ...f, milestones: e.target.value })} /></div>
+        <p className="small muted">{t('The course starts as a draft. Assign instructors under Instructors, then publish it when the assignments are ready.')}</p>
+        <div className="row"><span className="spacer" /><button type="button" className="btn" onClick={onClose}>{t('Cancel')}</button><button className="btn btn-primary">{t('Create course')}</button></div>
       </form>
     </div>
   );

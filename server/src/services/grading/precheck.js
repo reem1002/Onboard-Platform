@@ -47,6 +47,7 @@ function runPrechecks({ assignment, text, peers = [] }) {
   const wc = words(text).length;
   if (wc < 60) flags.push({ kind: 'too_short', severity: 'high', message: `Only ${wc} readable words — the file may be empty, scanned or mostly images.` });
   if (/not machine-readable|Could not extract text/.test(text)) flags.push({ kind: 'unreadable_file', severity: 'warn', message: 'At least one file could not be read as text — open it in the viewer.' });
+  if (/read with OCR/.test(text)) flags.push({ kind: 'ocr_used', severity: 'info', message: 'Some text was read from images or scanned pages (OCR). Numbers, IPs and code may contain OCR mistakes — check them against the file.' });
   if (/looks scanned or made of screenshots/.test(text)) flags.push({ kind: 'scanned_pdf', severity: 'warn', message: 'A PDF has almost no selectable text (scanned or screenshots) — the AI can only grade the text it can read.' });
   if (INJECTION.test(text)) flags.push({ kind: 'prompt_injection_attempt', severity: 'high', message: 'The submission contains text that tries to instruct the AI grader.' });
 
