@@ -16,7 +16,7 @@ export default function QuizEditor() {
 
   useEffect(() => {
     if (id) api.get(`/quizzes/${id}`).then(({ data }) => setF(data.quiz)).catch((e) => setErr(errorMessage(e)));
-    else setF({ milestoneId: params.get('milestone'), title: '', description: '', passScore: 70, maxAttempts: 3, isPublished: false, questions: [newQuestion()] });
+    else setF({ milestoneId: params.get('milestone'), title: '', description: '', passScore: 70, maxAttempts: 3, timeLimitMinutes: '', shuffle: true, isPublished: false, questions: [newQuestion()] });
   }, [id, params]);
 
   if (!f) return (err ? <div className="page"><ErrorBox>{err}</ErrorBox></div> : <PageSkeleton variant="detail" />);
@@ -55,6 +55,8 @@ export default function QuizEditor() {
         description: f.description || undefined,
         passScore: Number(f.passScore),
         maxAttempts: Number(f.maxAttempts),
+        timeLimitMinutes: f.timeLimitMinutes === '' || f.timeLimitMinutes == null ? null : Number(f.timeLimitMinutes),
+        shuffle: f.shuffle !== false,
         isPublished: f.isPublished,
         questions: f.questions.map(({ _id, type, prompt, options, correct, explanation, points }) => ({
           ...(_id ? { _id } : {}), type, prompt, options, correct, explanation: explanation || undefined, points: Number(points),
@@ -87,6 +89,8 @@ export default function QuizEditor() {
             <div className="field" style={{ gridColumn: '1 / -1' }}><label htmlFor="qt">Title</label><input id="qt" className="input" required value={f.title} onChange={(e) => up({ title: e.target.value })} placeholder="M1 Quiz: SOC Foundations" /></div>
             <div className="field"><label htmlFor="qp">Pass mark (%)</label><input id="qp" type="number" min={0} max={100} className="input" value={f.passScore} onChange={(e) => up({ passScore: e.target.value })} /></div>
             <div className="field"><label htmlFor="qa">Attempts allowed (0 = unlimited)</label><input id="qa" type="number" min={0} max={20} className="input" value={f.maxAttempts} onChange={(e) => up({ maxAttempts: e.target.value })} /></div>
+            <div className="field"><label htmlFor="qt">Time limit (minutes, empty = none)</label><input id="qt" type="number" min={1} max={600} className="input" value={f.timeLimitMinutes ?? ''} onChange={(e) => up({ timeLimitMinutes: e.target.value })} /></div>
+            <label className="row small" style={{ alignSelf: 'end', minHeight: 44 }}><input type="checkbox" checked={f.shuffle !== false} onChange={(e) => up({ shuffle: e.target.checked })} /> Shuffle questions &amp; answers for each attempt</label>
           </div>
           <div className="field"><label htmlFor="qd">Instructions (optional)</label><textarea id="qd" className="textarea" value={f.description || ''} onChange={(e) => up({ description: e.target.value })} /></div>
         </div>

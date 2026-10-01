@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useT } from '../lib/i18n';
 import { Eye, EyeOff } from 'lucide-react';
 
 /** Strength hint that mirrors the server rules (10+ chars, upper, lower, number). */
@@ -13,19 +14,20 @@ export function passwordChecks(v) {
 export const passwordOk = (v) => passwordChecks(v).every(([, ok]) => ok);
 
 export default function PasswordField({ id, label, value, onChange, autoComplete = 'new-password', showRules = false, required = true }) {
+  const t = useT();
   const [show, setShow] = useState(false);
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      <label htmlFor={id}>{t(label)}</label>
       <div className="pw-wrap">
         <input id={id} className="input" type={show ? 'text' : 'password'} autoComplete={autoComplete} required={required} value={value} onChange={(e) => onChange(e.target.value)} />
-        <button type="button" className="pw-toggle" aria-label={show ? 'Hide password' : 'Show password'} onClick={() => setShow((s) => !s)}>
+        <button type="button" className="pw-toggle" aria-label={show ? t('Hide password') : t('Show password')} onClick={() => setShow((s) => !s)}>
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
       {showRules && (
         <ul className="pw-rules" aria-live="polite">
-          {passwordChecks(value).map(([t, ok]) => <li key={t} className={ok ? 'ok' : ''}>{ok ? '✓' : '•'} {t}</li>)}
+          {passwordChecks(value).map(([rule, ok]) => <li key={rule} className={ok ? 'ok' : ''}>{ok ? '✓' : '•'} {t(rule)}</li>)}
         </ul>
       )}
     </div>

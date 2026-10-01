@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, FileDown, Plus, RotateCcw, Sparkles, Trash2, Eye, PencilLine, ShieldAlert, Quote, Info, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Download, FileDown, Plus, RotateCcw, Sparkles, Trash2, Eye, PencilLine, ShieldAlert, Quote, Info, AlertTriangle, FileSearch } from 'lucide-react';
 import { api, errorMessage } from '../api/client';
 import { downloadSubmissionFile, downloadFeedbackDocx, downloadFeedbackPdf } from '../api/files';
 import FeedbackView from '../components/FeedbackView';
+import FileViewer from '../components/FileViewer';
 import { Loader, ErrorBox, StatusChip, fmtDate, PageSkeleton } from '../components/ui';
 
 const CHECK_LABEL = {
@@ -56,6 +57,7 @@ export default function ReviewDetail() {
   const [scores, setScores] = useState({});
   const [fb, setFb] = useState(blankFeedback);
   const [tab, setTab] = useState('edit');
+  const [fileIdx, setFileIdx] = useState(0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -145,6 +147,7 @@ export default function ReviewDetail() {
       <div className="review-layout">
         <div className="stack">
           <div className="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === 'files'} className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}><FileSearch size={15} /> Submission</button>
             <button role="tab" aria-selected={tab === 'edit'} className={tab === 'edit' ? 'active' : ''} onClick={() => setTab('edit')}><PencilLine size={15} /> Edit feedback</button>
             <button role="tab" aria-selected={tab === 'preview'} className={tab === 'preview' ? 'active' : ''} onClick={() => setTab('preview')}><Eye size={15} /> Preview as employee</button>
             <span className="spacer" />
@@ -165,7 +168,9 @@ export default function ReviewDetail() {
             <div className="alert alert-ok">No AI draft for this submission — fill in the scores and feedback below.</div>
           )}
 
-          {tab === 'preview' ? (
+          {tab === 'files' ? (
+            <FileViewer files={sub.files} source={{ type: 'submission', id: sub._id }} initial={fileIdx} height="calc(100dvh - 260px)" />
+          ) : tab === 'preview' ? (
             <div className="card fb-sheet"><FeedbackView sub={sub} fb={previewFb} /></div>
           ) : (
             <>
@@ -251,9 +256,12 @@ export default function ReviewDetail() {
           <div className="card stack">
             <h3>Files</h3>
             {sub.files.map((f, i) => (
-              <button key={i} className="file-link" title={f.originalName} onClick={() => downloadSubmissionFile(sub._id, i, f.originalName)}>
-                <Download size={14} /> <span>{f.originalName}</span>
-              </button>
+              <div key={i} className="file-row">
+                <button className="file-link" title={`View ${f.originalName}`} onClick={() => { setFileIdx(i); setTab('files'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>
+                  <FileSearch size={14} /> <span>{f.originalName}</span>
+                </button>
+                <button className="btn btn-ghost icon-btn" aria-label={`Download ${f.originalName}`} title="Download" onClick={() => downloadSubmissionFile(sub._id, i, f.originalName)}><Download size={14} /></button>
+              </div>
             ))}
             {sub.note && <><h3>Employee note</h3><p className="small">{sub.note}</p></>}
           </div>

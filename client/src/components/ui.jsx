@@ -1,3 +1,5 @@
+import { useT, dateLocale } from '../lib/i18n';
+
 /* ---------------- Loading states ----------------
  * Skeletons mirror the layout that is about to appear, so the page doesn't jump when data lands.
  * They shimmer (unless the user prefers reduced motion) and are announced once to screen readers. */
@@ -104,9 +106,10 @@ const STATUS = {
 };
 
 export function StatusChip({ status }) {
-  if (!status) return <span className="chip">Not started</span>;
+  const t = useT();
+  if (!status) return <span className="chip">{t('Not started')}</span>;
   const [label, cls] = STATUS[status] || [status, ''];
-  return <span className={`chip ${cls}`}>{label}</span>;
+  return <span className={`chip ${cls}`}>{t(label)}</span>;
 }
 
 export function Progress({ value, ok }) {
@@ -117,4 +120,4 @@ export function Progress({ value, ok }) {
   );
 }
 
-export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+export const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '—');

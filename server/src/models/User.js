@@ -24,6 +24,7 @@ const userSchema = new Schema(
     lastLoginAt: Date,
     preferences: {
       theme: { type: String, enum: ['default', 'light', 'dark', 'system'], default: 'default' },
+      language: { type: String, enum: ['en', 'ar'], default: 'en' },
       email: {
         enabled: { type: Boolean, default: true }, // notification emails at all
         grades: { type: Boolean, default: true }, // graded / returned / quiz results
@@ -31,6 +32,7 @@ const userSchema = new Schema(
         support: { type: Boolean, default: true }, // ticket replies & new tickets
         reviews: { type: Boolean, default: true }, // staff: new submissions, AI drafts ready
         team: { type: Boolean, default: true }, // company admin: completions, seats, shared reports
+        reminders: { type: Boolean, default: true }, // due dates, overdue work, reviews waiting
       },
     },
   },

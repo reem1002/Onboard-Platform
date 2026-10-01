@@ -107,7 +107,7 @@ router.get(
     const best = {};
     if (isStudent) {
       const atts = await QuizAttempt.find({ student: req.user._id, quiz: { $in: quizzes.map((q) => q._id) } }).select('quiz score passed');
-      for (const a of atts) if (!best[a.quiz] || a.score > best[a.quiz].score) best[a.quiz] = a;
+      for (const a of atts) if (!best[a.quiz] || (a.passed && !best[a.quiz].passed) || (a.passed === best[a.quiz].passed && a.score > best[a.quiz].score)) best[a.quiz] = a;
     }
 
     await course.populate('instructors', 'name');

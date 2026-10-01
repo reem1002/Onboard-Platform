@@ -262,6 +262,8 @@ describe('submissions + AI review workflow', () => {
       flags: [],
       totalScore: 100, // must be ignored
     });
+    // The tiny test PDF has no real text; give the grader something readable via the note
+    await Submission.updateOne({ _id: subId }, { note: 'Severity levels P1 to P4 with escalation within fifteen minutes and SLA targets for each level. '.repeat(8) });
     const sub = await gradeSubmission(subId, { model: fakeModel });
     expect(sub.status).toBe('ai_graded');
     expect(sub.ai.totalScore).toBe(80); // 100*0.6 + 50*0.4
@@ -929,6 +931,18 @@ describe('in-house AI grading pipeline', () => {
     expect(prompts[0]).toContain('too generous'); // earlier AI draft said 90
   });
 
+  test('unreadable submissions skip the AI (no invented draft) and go to manual grading', async () => {
+    const other = await User.findOne({ email: 'copycat@acme.test' });
+    const empty = await makeSub(other._id, 'Too short.', 'empty.txt');
+    const calls = [];
+    const provider = { id: 'local', model: 'fake', async complete() { calls.push(1); return {}; } };
+    const sub = await gradeSubmission(empty._id, { provider });
+    expect(calls).toHaveLength(0);
+    expect(sub.status).toBe('ai_failed');
+    expect(sub.ai.error).toMatch(/grade it manually/);
+    expect(sub.ai.checks.map((c) => c.kind)).toContain('too_short');
+  });
+
   test('AI failure falls back to manual grading and tells the instructor', async () => {
     const provider = { id: 'local', model: 'fake', async complete() { throw new Error('Local AI (Ollama) is not reachable'); } };
     await Submission.updateOne({ _id: s2._id }, { status: 'submitted' });
@@ -951,5 +965,160 @@ describe('in-house AI grading pipeline', () => {
     expect(st.body.local.reachable).toBe(false); // no Ollama in CI
     const a = await login('admin@acme.test');
     await request(app).get('/api/settings/ai/status').set('Authorization', `Bearer ${a.token}`).expect(403);
+  });
+});
+
+describe('viewer, quizzes, certificates, reminders, branding, exports', () => {
+  const { Quiz, QuizAttempt, QuizStart } = require('../src/models/Quiz');
+  const Certificate = require('../src/models/Certificate');
+  const Notification = require('../src/models/Notification');
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64');
+  let cAsg; let cCourse; let quiz; let empB;
+
+  beforeAll(async () => {
+    // A small course the employee can finish: one assignment + one timed quiz
+    cCourse = await Course.create({ code: 'CERT-1', title: 'Certificate course', isPublished: true, milestones: [{ title: 'Only' }], instructors: [(await User.findOne({ email: 'instr@lms.test' }))._id], certificationTarget: 'CompTIA CySA+' });
+    cAsg = await Assignment.create({ course: cCourse._id, milestoneId: cCourse.milestones[0]._id, code: 'C-01', title: 'Write it', isPublished: true, aiGrading: false, deliverable: { acceptedFileTypes: ['pdf', 'docx'], maxFiles: 2 }, rubric: [{ criterion: 'All', weight: 100 }] });
+    quiz = await Quiz.create({ course: cCourse._id, milestoneId: cCourse.milestones[0]._id, title: 'Final check', isPublished: true, passScore: 50, maxAttempts: 1, timeLimitMinutes: 10, questions: [{ prompt: '2+2?', options: ['3', '4'], correct: [1] }] });
+    empB = await User.create({ name: 'Bassem = Tester', email: 'bassem@acme.test', password: PW, role: 'employee', company: acme._id, department: '=cmd|calc' });
+    await Enrollment.create({ company: acme._id, user: emp._id, course: cCourse._id, dueAt: new Date(Date.now() + 2 * 864e5) });
+    await Enrollment.create({ company: acme._id, user: empB._id, course: cCourse._id, dueAt: new Date(Date.now() - 864e5) });
+  });
+
+  test('docx submissions are previewed as HTML (with images) only for people who may see them', async () => {
+    const { Document, Packer, Paragraph, ImageRun } = require('docx');
+    const docx = await Packer.toBuffer(new Document({ sections: [{ children: [new Paragraph('Severity matrix for NexaBank'), new Paragraph({ children: [new ImageRun({ data: PNG, transformation: { width: 20, height: 20 }, type: 'png' })] })] }] }));
+    const e = await login('emp@acme.test');
+    const up = await request(app).post(`/api/assignments/${cAsg._id}/submissions`).set('Authorization', `Bearer ${e.token}`).attach('files', docx, 'work.docx');
+    expect(up.status).toBe(201);
+    const id = up.body.submission._id;
+    const p = await request(app).get(`/api/submissions/${id}/files/0/preview`).set('Authorization', `Bearer ${e.token}`);
+    expect(p.status).toBe(200);
+    expect(p.body.kind).toBe('html');
+    expect(p.body.html).toContain('Severity matrix for NexaBank');
+    expect(p.body.html).toContain('data:image/png;base64');
+    const o = await login('emp@other.test');
+    await request(app).get(`/api/submissions/${id}/files/0/preview`).set('Authorization', `Bearer ${o.token}`).expect(404);
+    const i = await login('instr@lms.test');
+    const pdf = await request(app).get(`/api/submissions/${id}/files/0/preview`).set('Authorization', `Bearer ${i.token}`);
+    expect(pdf.body.kind).toBe('html');
+  });
+
+  test('timed quiz: server clock, one start = one attempt, late submissions do not pass, instructor can grant another try', async () => {
+    const e = await login('emp@acme.test');
+    await request(app).post(`/api/quizzes/${quiz._id}/attempts`).set('Authorization', `Bearer ${e.token}`).send({ answers: [] }).expect(409); // must start first
+    const st = await request(app).post(`/api/quizzes/${quiz._id}/start`).set('Authorization', `Bearer ${e.token}`);
+    expect(st.status).toBe(201);
+    expect(new Date(st.body.endsAt) - new Date(st.body.startedAt)).toBe(10 * 60000);
+    await QuizStart.updateOne({ quiz: quiz._id, student: emp._id, used: false }, { startedAt: new Date(Date.now() - 30 * 60000) }); // pretend 30 min passed
+    const late = await request(app).post(`/api/quizzes/${quiz._id}/attempts`).set('Authorization', `Bearer ${e.token}`).send({ answers: [{ questionId: String(quiz.questions[0]._id), selected: [1] }] });
+    expect(late.status).toBe(201);
+    expect(late.body.attempt.overtime).toBe(true);
+    expect(late.body.attempt.passed).toBe(false);
+    expect(late.body.attemptsLeft).toBe(0);
+    expect(await Notification.exists({ type: 'quiz_failed_out' })).toBeTruthy();
+    await request(app).post(`/api/quizzes/${quiz._id}/start`).set('Authorization', `Bearer ${e.token}`).expect(409); // out of attempts
+
+    const i = await login('instr@lms.test');
+    const r = await request(app).get(`/api/quizzes/${quiz._id}/results`).set('Authorization', `Bearer ${i.token}`);
+    expect(r.body.rows.find((x) => x.student.email === 'emp@acme.test').outOfAttempts).toBe(true);
+    expect(r.body.items[0].correctPct).toBe(100);
+    const a = await login('admin@acme.test');
+    await request(app).post(`/api/quizzes/${quiz._id}/grant`).set('Authorization', `Bearer ${a.token}`).send({ student: String(emp._id) }).expect(403);
+    await request(app).post(`/api/quizzes/${quiz._id}/grant`).set('Authorization', `Bearer ${i.token}`).send({ student: String(emp._id) }).expect(200);
+    await request(app).post(`/api/quizzes/${quiz._id}/start`).set('Authorization', `Bearer ${e.token}`).expect(201);
+    const ok = await request(app).post(`/api/quizzes/${quiz._id}/attempts`).set('Authorization', `Bearer ${e.token}`).send({ answers: [{ questionId: String(quiz.questions[0]._id), selected: [1] }] });
+    expect(ok.body.attempt.passed).toBe(true);
+    expect(await Certificate.exists({ student: emp._id, course: cCourse._id })).toBeFalsy(); // assignment still ungraded
+  });
+
+  test('certificate is issued when the last item is approved; PDF + public verification; scoped listing', async () => {
+    const i = await login('instr@lms.test');
+    const sub = await Submission.findOne({ assignment: cAsg._id, student: emp._id });
+    await request(app).post(`/api/submissions/${sub._id}/review`).set('Authorization', `Bearer ${i.token}`).send({ decision: 'approve', criteria: [{ criterionId: String(cAsg.rubric[0]._id), score: 88 }], overview: 'Good' }).expect(200);
+    const cert = await Certificate.findOne({ student: emp._id, course: cCourse._id });
+    expect(cert).toBeTruthy();
+    expect(cert.number).toBe('CERT-1-0001');
+    expect((await Enrollment.findOne({ user: emp._id, course: cCourse._id })).status).toBe('completed');
+    expect(await Notification.exists({ user: emp._id, type: 'certificate_issued' })).toBeTruthy();
+
+    const e = await login('emp@acme.test');
+    const mine = await request(app).get('/api/certificates').set('Authorization', `Bearer ${e.token}`);
+    expect(mine.body.certificates.every((c) => String(c.student) === String(emp._id))).toBe(true);
+    expect(mine.body.certificates.find((c) => c.courseCode === 'CERT-1').verifyUrl).toContain(`/verify/${cert.code}`);
+    const pdf = await request(app).get(`/api/certificates/${cert._id}/pdf`).set('Authorization', `Bearer ${e.token}`);
+    expect(pdf.status).toBe(200);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    const o = await login('admin@other.test');
+    await request(app).get(`/api/certificates/${cert._id}/pdf`).set('Authorization', `Bearer ${o.token}`).expect(404);
+    expect((await request(app).get('/api/certificates').set('Authorization', `Bearer ${o.token}`)).body.certificates).toHaveLength(0);
+
+    const v = await request(app).get(`/api/certificates/verify/${cert.code}`); // no auth
+    expect(v.body).toMatchObject({ valid: true, studentName: 'Emp Updated', courseCode: 'CERT-1' });
+    expect(v.body.email).toBeUndefined();
+    await request(app).get('/api/certificates/verify/AAAAAAAAAAAA').expect(404);
+    const root = await login('root@lms.test');
+    await request(app).post(`/api/certificates/${cert._id}/revoke`).set('Authorization', `Bearer ${root.token}`).send({ reason: 'Issued in error' }).expect(200);
+    expect((await request(app).get(`/api/certificates/verify/${cert.code}`)).body.valid).toBe(false);
+  });
+
+  test('reminders: due soon / overdue sent once; company admin told about overdue', async () => {
+    const { runReminders } = require('../src/services/reminders');
+    await Enrollment.updateOne({ user: emp._id, course: cCourse._id }, { status: 'active' });
+    await Certificate.deleteMany({ course: cCourse._id }); // pretend not finished for this test
+    await Submission.updateMany({ assignment: cAsg._id }, { status: 'submitted' });
+    const first = await runReminders();
+    expect(first).toBeGreaterThanOrEqual(2);
+    expect(await Notification.exists({ user: emp._id, type: 'due_soon', title: /CERT-1 is due in 3 days/ })).toBeTruthy();
+    expect(await Notification.exists({ user: empB._id, type: 'overdue' })).toBeTruthy();
+    const admin = await User.findOne({ email: 'admin@acme.test' });
+    expect(await Notification.exists({ user: admin._id, type: 'overdue', title: /Bassem/ })).toBeTruthy();
+    expect(await runReminders()).toBe(0); // idempotent
+  });
+
+  test('company branding: own admin sets accent + PNG logo; SVG refused; other companies cannot', async () => {
+    const a = await login('admin@acme.test');
+    await request(app).put(`/api/branding/${acme._id}`).set('Authorization', `Bearer ${a.token}`).send({ accentColor: '#0F766E' }).expect(200);
+    await request(app).put(`/api/branding/${acme._id}`).set('Authorization', `Bearer ${a.token}`).send({ accentColor: 'red;}' }).expect(400);
+    await request(app).post(`/api/branding/${acme._id}/logo`).set('Authorization', `Bearer ${a.token}`).attach('files', Buffer.from('<svg onload="alert(1)"/>'), 'logo.svg').expect(400);
+    const up = await request(app).post(`/api/branding/${acme._id}/logo`).set('Authorization', `Bearer ${a.token}`).attach('files', PNG, 'logo.png');
+    expect(up.status).toBe(201);
+    const o = await login('admin@other.test');
+    await request(app).put(`/api/branding/${acme._id}`).set('Authorization', `Bearer ${o.token}`).send({ accentColor: '#000000' }).expect(404);
+    const e = await login('emp@acme.test');
+    const me = await request(app).get('/api/branding/me').set('Authorization', `Bearer ${e.token}`);
+    expect(me.body.branding).toMatchObject({ name: 'Acme', accentColor: '#0F766E' });
+    const logo = await request(app).get(me.body.branding.logoUrl.replace(/^\/api/, '/api'));
+    expect(logo.status).toBe(200);
+    expect(logo.headers['content-type']).toBe('image/png');
+    const i = await login('instr@lms.test');
+    expect((await request(app).get('/api/branding/me').set('Authorization', `Bearer ${i.token}`)).body.branding).toBeNull();
+  });
+
+  test('exports: CSV is scoped, Excel-safe and formula-proof; team PDF and gradebook work', async () => {
+    const a = await login('admin@acme.test');
+    const csv = await request(app).get('/api/exports/team.csv').set('Authorization', `Bearer ${a.token}`);
+    expect(csv.status).toBe(200);
+    expect(csv.text.charCodeAt(0)).toBe(0xfeff);
+    expect(csv.text).toContain("'=cmd|calc"); // formula neutralised
+    expect(csv.text).not.toContain('emp@other.test');
+    const o = await login('admin@other.test');
+    expect((await request(app).get('/api/exports/team.csv').set('Authorization', `Bearer ${o.token}`)).text).not.toContain('acme.test');
+    const pdf = await request(app).get('/api/exports/team.pdf').set('Authorization', `Bearer ${a.token}`);
+    expect(pdf.headers['content-type']).toBe('application/pdf');
+    const i2 = await login('instr2@lms.test');
+    await request(app).get(`/api/exports/gradebook.csv?course=${cCourse._id}`).set('Authorization', `Bearer ${i2.token}`).expect(404);
+    const i = await login('instr@lms.test');
+    const gb = await request(app).get(`/api/exports/gradebook.csv?course=${cCourse._id}`).set('Authorization', `Bearer ${i.token}`);
+    expect(gb.text).toContain('C-01');
+    expect(gb.text).toContain('Quiz: Final check');
+    const e = await login('emp@acme.test');
+    await request(app).get('/api/exports/team.csv').set('Authorization', `Bearer ${e.token}`).expect(403);
+  });
+
+  test('language preference is saved', async () => {
+    const { token } = await login('emp@acme.test');
+    const r = await request(app).patch('/api/auth/me/preferences').set('Authorization', `Bearer ${token}`).send({ language: 'ar' });
+    expect(r.body.user.preferences.language).toBe('ar');
   });
 });

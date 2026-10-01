@@ -1,19 +1,29 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, Sheet, FileDown } from 'lucide-react';
+import { downloadFile } from '../api/files';
+import { errorMessage } from '../api/client';
 import { useFetch } from '../api/useFetch';
 import { Loader, ErrorBox, Progress, fmtDate, PageSkeleton } from '../components/ui';
 import { useAuth } from '../context/AuthContext';
 import ResetPasswordButton from '../components/ResetPasswordButton';
+import { useT } from '../lib/i18n';
 
 export default function TeamDashboard() {
   const [params] = useSearchParams();
   const companyId = params.get('company');
   const { user } = useAuth();
+  const t = useT();
   const isAdmin = user.role === 'super_admin';
   const { data, error, loading } = useFetch(`/dashboard/company${companyId ? `?company=${encodeURIComponent(companyId)}` : ''}`, [companyId]);
   const [q, setQ] = useState('');
   const [filter, setFilter] = useState('all');
+  const [expErr, setExpErr] = useState('');
+  const exportAs = (ext) => {
+    setExpErr('');
+    const qs = companyId ? `?company=${encodeURIComponent(companyId)}` : '';
+    downloadFile(`/exports/team.${ext}${qs}`, `${data?.company?.name || 'team'} progress.${ext}`).catch((e) => setExpErr(errorMessage(e)));
+  };
 
   const rows = useMemo(() => {
     if (!data) return [];
@@ -40,16 +50,20 @@ export default function TeamDashboard() {
       {companyId && <Link to="/admin/companies" className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> Companies</Link>}
       <div className="page-head">
         <div>
-          <h1>{data.company ? `${data.company.name} — team progress` : 'Team progress'}</h1>
-          <p>Where every new hire is in their onboarding.</p>
+          <h1>{data.company ? t('{name} — team progress', { name: data.company.name }) : t('Team progress')}</h1>
+          <p>{t('Where every new hire is in their onboarding.')}</p>
         </div>
+        <span className="spacer" />
+        <button className="btn" onClick={() => exportAs('csv')}><Sheet size={15} /> {t('Export CSV')}</button>
+        <button className="btn" onClick={() => exportAs('pdf')}><FileDown size={15} /> {t('Export PDF')}</button>
       </div>
+      <ErrorBox>{expErr}</ErrorBox>
 
       <div className="stats">
-        <div className="stat"><b>{s.employees}</b><span>Employees{data.company ? ` · ${s.seatsUsed}/${data.company.seatLimit} seats` : ''}</span></div>
-        <div className="stat"><b>{s.avgCompletion}%</b><span>Average completion</span></div>
-        <div className="stat"><b style={{ color: s.overdue ? 'var(--warning)' : undefined }}>{s.overdue}</b><span>Overdue</span></div>
-        <div className="stat"><b>{s.pendingReview}</b><span>Waiting for grading</span></div>
+        <div className="stat"><b>{s.employees}</b><span>{t('Employees')}{data.company ? ` · ${t('{a}/{b} seats', { a: s.seatsUsed, b: data.company.seatLimit })}` : ''}</span></div>
+        <div className="stat"><b>{s.avgCompletion}%</b><span>{t('Average completion')}</span></div>
+        <div className="stat"><b style={{ color: s.overdue ? 'var(--warning)' : undefined }}>{s.overdue}</b><span>{t('Overdue')}</span></div>
+        <div className="stat"><b>{s.pendingReview}</b><span>{t('Waiting for grading')}</span></div>
       </div>
 
       <div className="row" style={{ marginBottom: 'var(--sp-3)' }}>

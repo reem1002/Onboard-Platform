@@ -1,15 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, refreshSession, setAccessToken, setSessionLostHandler } from '../api/client';
 import { applyTheme } from '../lib/theme';
+import { useI18n } from '../lib/i18n';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
+  const [signedOut, setSignedOut] = useState(false); // after an explicit sign-out the next login starts at the dashboard
 
-  // Each account carries its own theme; signing out keeps the last one on this device
+  // Each account carries its own theme and language; signing out keeps the last ones on this device
+  const { setLang } = useI18n();
   useEffect(() => { if (user?.preferences?.theme) applyTheme(user.preferences.theme); }, [user?.preferences?.theme]);
+  useEffect(() => { if (user?.preferences?.language) setLang(user.preferences.language); }, [user?.preferences?.language, setLang]);
 
   // Restore session on load using the httpOnly refresh cookie
   useEffect(() => {
@@ -23,6 +27,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password, rememberMe = false) => {
     const { data } = await api.post('/auth/login', { email, password, rememberMe });
     setAccessToken(data.accessToken);
+    setSignedOut(false);
     setUser(data.user);
     return data.user;
   }, []);
@@ -32,6 +37,7 @@ export function AuthProvider({ children }) {
       await api.post('/auth/logout');
     } finally {
       setAccessToken(null);
+      setSignedOut(true);
       setUser(null);
     }
   }, []);
@@ -42,7 +48,7 @@ export function AuthProvider({ children }) {
     if (data.user) setUser(data.user);
   }, []);
 
-  const value = useMemo(() => ({ user, booting, login, logout, applySession }), [user, booting, login, logout, applySession]);
+  const value = useMemo(() => ({ user, booting, signedOut, login, logout, applySession }), [user, booting, signedOut, login, logout, applySession]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

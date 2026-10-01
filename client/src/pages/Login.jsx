@@ -4,9 +4,12 @@ import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { errorMessage } from '../api/client';
 import { ErrorBox } from '../components/ui';
+import { useT } from '../lib/i18n';
 import PasswordField from '../components/PasswordField';
+import LanguageToggle from '../components/LanguageToggle';
 
 export function AuthShell({ children }) {
+  const t = useT();
   return (
     <div className="auth-wrap">
       <section className="auth-art">
@@ -14,17 +17,18 @@ export function AuthShell({ children }) {
           <span className="brand-mark"><ShieldCheck size={18} /></span> Onboard
         </div>
         <div>
-          <h1>Your first weeks, one clear path.</h1>
-          <p>See exactly what to finish, submit your work, and get reviewed feedback from your instructor.</p>
+          <h1>{t('Your first weeks, one clear path.')}</h1>
+          <p>{t('See exactly what to finish, submit your work, and get reviewed feedback from your instructor.')}</p>
         </div>
-        <p className="foot small" style={{ color: 'var(--ink-2)' }}>Employee training for security teams</p>
+        <p className="foot small" style={{ color: 'var(--ink-2)' }}>{t('Employee training for security teams')}</p>
       </section>
-      <main className="auth-form">{children}</main>
+      <main className="auth-form"><div className="auth-lang"><LanguageToggle /></div>{children}</main>
     </div>
   );
 }
 
 export default function Login() {
+  const t = useT();
   const { user, login } = useAuth();
   const loc = useLocation();
   const [email, setEmail] = useState('');
@@ -42,7 +46,7 @@ export default function Login() {
     try {
       await login(email, password, remember);
     } catch (err) {
-      setError(errorMessage(err, 'Sign-in failed.'));
+      setError(errorMessage(err, t('Sign-in failed.')));
     } finally {
       setBusy(false);
     }
@@ -51,24 +55,24 @@ export default function Login() {
   return (
     <AuthShell>
       <form onSubmit={submit} className="stack" noValidate>
-        <h2>Sign in</h2>
-        <p className="muted small">Use the account your company created for you.</p>
-        {loc.state?.notice && <div className="alert alert-ok">{loc.state.notice}</div>}
+        <h2>{t('Sign in')}</h2>
+        <p className="muted small">{t('Use the account your company created for you.')}</p>
+        {loc.state?.notice && <div className="alert alert-ok">{t(loc.state.notice)}</div>}
         <ErrorBox>{error}</ErrorBox>
         <div className="field">
-          <label htmlFor="email">Work email</label>
+          <label htmlFor="email">{t('Work email')}</label>
           <input id="email" className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <PasswordField id="password" label="Password" autoComplete="current-password" value={password} onChange={setPassword} />
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <label className="row small" style={{ gap: 8 }}>
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> Remember me for 30 days
+            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} /> {t('Remember me for 30 days')}
           </label>
-          <Link to="/forgot-password" className="small">Forgot password?</Link>
+          <Link to="/forgot-password" className="small">{t('Forgot password?')}</Link>
         </div>
-        <p className="small muted" style={{ marginTop: 0 }}>Only tick “remember me” on your own device.</p>
+        <p className="small muted" style={{ marginTop: 0 }}>{t('Only tick “remember me” on your own device.')}</p>
         <button className="btn btn-primary" style={{ width: '100%' }} disabled={busy || !email || !password}>
-          {busy ? 'Signing in…' : 'Sign in'}
+          {busy ? t('Signing in…') : t('Sign in')}
         </button>
       </form>
     </AuthShell>

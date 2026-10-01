@@ -214,4 +214,116 @@ async function buildProgressReportPdf(d, n) {
   });
 }
 
-module.exports = { buildFeedbackPdf, buildProgressReportPdf };
+/** Course completion certificate (A4 landscape) with a QR code to the public verification page. */
+async function buildCertificatePdf(c, opts) {
+  try {
+    return await certificateDoc(c, opts);
+  } catch (e) {
+    if (opts.logo && /image/i.test(e.message)) return certificateDoc(c, { ...opts, logo: null }); // a broken logo must never block the certificate
+    throw e;
+  }
+}
+async function certificateDoc(c, { logo, accent, verifyUrl }) {
+  const A = accent || ACCENT;
+  const PW = 842; const PH = 595;
+  return toBuffer({
+    pageSize: 'A4',
+    pageOrientation: 'landscape',
+    pageMargins: [70, 60, 70, 60],
+    info: { title: `Certificate ${c.number}`, author: env.ORG_NAME },
+    background: () => ({
+      canvas: [
+        { type: 'rect', x: 18, y: 18, w: PW - 36, h: PH - 36, lineWidth: 3, lineColor: A },
+        { type: 'rect', x: 28, y: 28, w: PW - 56, h: PH - 56, lineWidth: 0.75, lineColor: LINE },
+      ],
+    }),
+    content: [
+      {
+        columns: [
+          { text: env.ORG_NAME.toUpperCase(), bold: true, fontSize: 11, color: A, characterSpacing: 2, margin: [0, 6, 0, 0] },
+          logo ? { image: logo, fit: [130, 46], alignment: 'right' } : { text: c.companyName || '', alignment: 'right', color: MUTED, margin: [0, 6, 0, 0] },
+        ],
+      },
+      { text: 'CERTIFICATE OF COMPLETION', alignment: 'center', fontSize: 26, bold: true, characterSpacing: 3, margin: [0, 42, 0, 6] },
+      { canvas: [{ type: 'line', x1: 260, y1: 0, x2: 442, y2: 0, lineWidth: 2, lineColor: A }], margin: [0, 0, 0, 22] },
+      { text: 'This certifies that', alignment: 'center', color: MUTED, fontSize: 12 },
+      { text: c.studentName, alignment: 'center', fontSize: 32, bold: true, margin: [0, 8, 0, 8] },
+      { text: 'has successfully completed the hands-on training programme', alignment: 'center', color: MUTED, fontSize: 12 },
+      { text: c.courseTitle, alignment: 'center', fontSize: 18, bold: true, margin: [0, 8, 0, 2] },
+      c.certificationTarget ? { text: `Aligned to ${c.certificationTarget}`, alignment: 'center', color: MUTED, fontSize: 11 } : {},
+      {
+        margin: [0, 44, 0, 0],
+        columns: [
+          { width: '*', stack: [
+            { text: fmtDate(c.issuedAt), bold: true, fontSize: 11 },
+            { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 170, y2: 4, lineWidth: 0.5, lineColor: LINE }] },
+            { text: 'Date of issue', color: MUTED, fontSize: 9, margin: [0, 4, 0, 0] },
+          ] },
+          { width: '*', alignment: 'center', stack: [
+            { text: c.avgScore != null ? `${c.avgScore}%` : '—', bold: true, fontSize: 11, alignment: 'center' },
+            { canvas: [{ type: 'line', x1: 30, y1: 4, x2: 200, y2: 4, lineWidth: 0.5, lineColor: LINE }] },
+            { text: 'Average assessed grade', color: MUTED, fontSize: 9, margin: [0, 4, 0, 0], alignment: 'center' },
+          ] },
+          { width: 'auto', stack: [
+            { qr: verifyUrl, fit: 74, foreground: INK },
+          ] },
+          { width: 150, stack: [
+            { text: `No. ${c.number}`, bold: true, fontSize: 9, margin: [8, 8, 0, 0] },
+            { text: 'Scan or visit to verify:', color: MUTED, fontSize: 8, margin: [8, 4, 0, 0] },
+            { text: verifyUrl, color: MUTED, fontSize: 7, margin: [8, 2, 0, 0] },
+          ] },
+        ],
+      },
+    ],
+  });
+}
+
+/** Team progress table (A4 landscape) for company admins / platform admin. */
+async function buildTeamPdf(rows, opts) {
+  try {
+    return await teamDoc(rows, opts);
+  } catch (e) {
+    if (opts.logo && /image/i.test(e.message)) return teamDoc(rows, { ...opts, logo: null });
+    throw e;
+  }
+}
+async function teamDoc(rows, { title, logo, accent }) {
+  const A = accent || ACCENT;
+  const done = rows.filter((r) => r.status === 'Completed').length;
+  const overdue = rows.filter((r) => r.status === 'Overdue').length;
+  const avg = rows.length ? Math.round(rows.reduce((s, r) => s + r.pct, 0) / rows.length) : 0;
+  const statusColor = { Completed: '#15803D', Overdue: '#B91C1C', 'In progress': INK, 'Not started': MUTED };
+  return toBuffer({
+    pageOrientation: 'landscape',
+    pageMargins: [36, 40, 36, 44],
+    info: { title, author: env.ORG_NAME },
+    footer: (page, count) => ({ text: `${env.ORG_NAME} · ${title} · ${fmtDate(new Date())} · Page ${page} of ${count}`, alignment: 'center', color: MUTED, fontSize: 8, margin: [0, 16, 0, 0] }),
+    content: [
+      { columns: [{ text: title, fontSize: 18, bold: true }, logo ? { image: logo, fit: [120, 40], alignment: 'right' } : { text: '' }] },
+      { canvas: [{ type: 'line', x1: 0, y1: 4, x2: 770, y2: 4, lineWidth: 2, lineColor: A }], margin: [0, 2, 0, 10] },
+      { text: `${rows.length} enrolment${rows.length === 1 ? '' : 's'} · average progress ${avg}% · ${done} completed · ${overdue} overdue`, color: MUTED, margin: [0, 0, 0, 10] },
+      {
+        table: {
+          headerRows: 1,
+          widths: ['*', 'auto', 'auto', 70, 'auto', 'auto', 'auto', 'auto'],
+          body: [
+            ['Employee', 'Course', 'Progress', '', 'Avg grade', 'Due', 'Status', 'Certificate'].map((h) => ({ text: h, bold: true, fillColor: HEAD })),
+            ...rows.map((r) => [
+              { stack: [{ text: r.name, bold: true }, { text: [r.jobTitle, r.department].filter(Boolean).join(' · ') || r.email, color: MUTED, fontSize: 8 }] },
+              r.courseCode,
+              `${r.pct}%`,
+              { canvas: [{ type: 'rect', x: 0, y: 3, w: 66, h: 6, r: 3, color: TRACK }, { type: 'rect', x: 0, y: 3, w: Math.max(0.1, (66 * Math.min(100, r.pct)) / 100), h: 6, r: 3, color: A }] },
+              r.avgScore != null ? `${r.avgScore}%` : '—',
+              r.dueAt ? fmtDate(r.dueAt) : '—',
+              { text: r.status, color: statusColor[r.status] || INK, bold: r.status !== 'Not started' },
+              r.certificate || '—',
+            ]),
+          ],
+        },
+        layout: grid,
+      },
+    ],
+  });
+}
+
+module.exports = { buildFeedbackPdf, buildProgressReportPdf, buildCertificatePdf, buildTeamPdf };

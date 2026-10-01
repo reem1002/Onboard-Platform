@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Building2, Plus, UserPlus, BarChart3, Check } from 'lucide-react';
+import { Building2, Plus, UserPlus, BarChart3, Check, Palette } from 'lucide-react';
 import { useFetch } from '../../api/useFetch';
 import { api, errorMessage } from '../../api/client';
 import { Loader, ErrorBox, Progress } from '../../components/ui';
@@ -143,7 +143,7 @@ export default function Companies() {
                         <button className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start', paddingInline: 0 }} onClick={() => setAddAdminFor(c)}><UserPlus size={14} /> Add admin</button>
                       </div>
                     </td>
-                    <td><Link className="btn btn-sm" to={`/team?company=${c._id}`}><BarChart3 size={14} /> Progress</Link></td>
+                    <td><div className="row" style={{ flexWrap: 'nowrap', justifyContent: 'flex-end' }}><Link className="btn btn-sm" to={`/team?company=${c._id}`}><BarChart3 size={14} /> Progress</Link><Link className="btn btn-ghost btn-sm" to={`/admin/companies/${c._id}/branding`} title="Logo and accent colour"><Palette size={14} /> Branding</Link></div></td>
                   </tr>
                 );
               })}

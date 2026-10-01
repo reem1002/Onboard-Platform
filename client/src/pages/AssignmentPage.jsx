@@ -1,15 +1,18 @@
 import { useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Paperclip, Upload, X, Pencil, Download, FileDown, MessageSquareText, MessageCircleQuestion } from 'lucide-react';
+import { ArrowLeft, Paperclip, Upload, X, Pencil, Download, FileDown, MessageSquareText, MessageCircleQuestion, Eye } from 'lucide-react';
 import { useFetch } from '../api/useFetch';
 import { api, errorMessage } from '../api/client';
 import { downloadSubmissionFile, downloadFeedbackPdf, uploadWithProgress } from '../api/files';
 import { AttachmentList } from '../components/Attachments';
+import { FileViewerModal } from '../components/FileViewer';
 import { useAuth } from '../context/AuthContext';
 import AssignmentBrief from '../components/AssignmentBrief';
 import { ErrorBox, StatusChip, fmtDate, PageSkeleton, UploadProgress, fmtBytes } from '../components/ui';
+import { useT } from '../lib/i18n';
 
 function SubmitPanel({ assignment, onDone }) {
+  const t = useT();
   const [files, setFiles] = useState([]);
   const [note, setNote] = useState('');
   const [drag, setDrag] = useState(false);
@@ -30,9 +33,9 @@ function SubmitPanel({ assignment, onDone }) {
     const all = [...list];
     const ok = all.filter((f) => types.includes(f.name.split('.').pop().toLowerCase()));
     const msgs = [];
-    if (ok.length < all.length) msgs.push(`Only ${accept} files are accepted.`);
+    if (ok.length < all.length) msgs.push(t('Only {x} files are accepted.', { x: accept }));
     const merged = [...files, ...ok];
-    if (merged.length > assignment.deliverable.maxFiles) msgs.push(`You can attach up to ${assignment.deliverable.maxFiles} file(s).`);
+    if (merged.length > assignment.deliverable.maxFiles) msgs.push(t('You can attach up to {n} file(s).', { n: assignment.deliverable.maxFiles }));
     setFiles(merged.slice(0, assignment.deliverable.maxFiles));
     if (msgs.length) setError(msgs.join(' '));
   };
@@ -51,7 +54,7 @@ function SubmitPanel({ assignment, onDone }) {
       setNote('');
       onDone();
     } catch (e) {
-      setError(e.code === 'ERR_CANCELED' ? 'Upload cancelled — nothing was submitted.' : errorMessage(e, 'Upload failed.'));
+      setError(e.code === 'ERR_CANCELED' ? t('Upload cancelled — nothing was submitted.') : errorMessage(e, t('Upload failed.')));
     } finally {
       setProgress(null);
     }
@@ -59,7 +62,7 @@ function SubmitPanel({ assignment, onDone }) {
 
   return (
     <div className="card stack">
-      <h3>Submit your work</h3>
+      <h3>{t('Submit your work')}</h3>
       <ErrorBox>{error}</ErrorBox>
       {progress ? (
         <UploadProgress loaded={progress.loaded} total={progress.total} onCancel={() => cancelRef.current?.()} />
@@ -75,9 +78,9 @@ function SubmitPanel({ assignment, onDone }) {
           onDrop={(e) => { e.preventDefault(); setDrag(false); add(e.dataTransfer.files); }}
         >
           <Upload size={20} style={{ margin: '0 auto 6px' }} />
-          Drop files here or <u>browse</u>
+          {t('Drop files here or')} <u>{t('browse')}</u>
           <div className="limit-note small muted">
-            <span>{accept}</span><span>·</span><span>up to {assignment.deliverable.maxFiles} file{assignment.deliverable.maxFiles > 1 ? 's' : ''}</span><span>·</span><span>max {fileMB} MB each</span>
+            <span>{accept}</span><span>·</span><span>{t('up to {n} file(s)', { n: assignment.deliverable.maxFiles })}</span><span>·</span><span>{t('max {n} MB each', { n: fileMB })}</span>
           </div>
           <input ref={input} type="file" hidden multiple accept={accept} onChange={(e) => { add(e.target.files); e.target.value = ''; }} />
         </div>
@@ -87,61 +90,68 @@ function SubmitPanel({ assignment, onDone }) {
           {files.map((f, i) => (
             <li key={i} className={f.size > fileMB * MBb ? 'too-big' : ''}>
               <Paperclip size={14} /> <span style={{ flex: 1, overflowWrap: 'anywhere' }}>{f.name}</span>
-              <span className="size">{fmtBytes(f.size)}{f.size > fileMB * MBb ? ` — over ${fileMB} MB` : ''}</span>
-              <button className="btn btn-ghost btn-sm" disabled={Boolean(progress)} aria-label={`Remove ${f.name}`} onClick={() => setFiles(files.filter((_, j) => j !== i))}><X size={14} /></button>
+              <span className="size">{fmtBytes(f.size)}{f.size > fileMB * MBb ? ` — ${t('over {n} MB', { n: fileMB })}` : ''}</span>
+              <button className="btn btn-ghost btn-sm" disabled={Boolean(progress)} aria-label={t('Remove {x}', { x: f.name })} onClick={() => setFiles(files.filter((_, j) => j !== i))}><X size={14} /></button>
             </li>
           ))}
-          {files.length > 1 && <li className={overTotal ? 'too-big' : ''}><span style={{ flex: 1 }} className="small muted">Total</span><span className="size">{fmtBytes(total)} of {totalMB} MB</span></li>}
+          {files.length > 1 && <li className={overTotal ? 'too-big' : ''}><span style={{ flex: 1 }} className="small muted">{t('Total')}</span><span className="size">{t('{a} of {b} MB', { a: fmtBytes(total), b: totalMB })}</span></li>}
         </ul>
       )}
-      {tooBig.length > 0 && <p className="small" style={{ color: 'var(--danger)' }}>Remove or compress files over {fileMB} MB (for example save the report as PDF, or zip screenshots).</p>}
+      {tooBig.length > 0 && <p className="small" style={{ color: 'var(--danger)' }}>{t('Remove or compress files over {n} MB (for example save the report as PDF, or zip screenshots).', { n: fileMB })}</p>}
       <div className="field">
-        <label htmlFor="note">Note to your instructor (optional)</label>
+        <label htmlFor="note">{t('Note to your instructor (optional)')}</label>
         <textarea id="note" className="textarea" maxLength={3000} value={note} onChange={(e) => setNote(e.target.value)} />
       </div>
       <button className="btn btn-primary" disabled={!files.length || Boolean(progress) || tooBig.length > 0 || overTotal} onClick={submit}>
-        {progress ? <><span className="spin-dot" /> Uploading…</> : 'Submit for review'}
+        {progress ? <><span className="spin-dot" /> {t('Uploading…')}</> : t('Submit for review')}
       </button>
     </div>
   );
 }
 
 function MySubmissions({ subs }) {
+  const t = useT();
+  const [view, setView] = useState(null);
   if (!subs.length) return null;
   return (
     <div className="card stack">
-      <h3>Your submissions</h3>
+      <h3>{t('Your submissions')}</h3>
       {subs.map((s) => (
         <div key={s._id} className="stack" style={{ borderTop: '1px solid var(--line)', paddingTop: 12 }}>
           <div className="row">
-            <strong className="small">Attempt {s.attempt}</strong>
+            <strong className="small">{t('Attempt {n}', { n: s.attempt })}</strong>
             <span className="small muted">{fmtDate(s.createdAt)}</span>
             <span className="spacer" />
             <StatusChip status={s.status} />
           </div>
           {s.files.map((f, i) => (
-            <button key={i} className="file-link" title={f.originalName} onClick={() => downloadSubmissionFile(s._id, i, f.originalName)}>
-              <Download size={14} /> <span>{f.originalName}</span>
-            </button>
+            <div key={i} className="file-row">
+              <button className="file-link" title={t('View {x}', { x: f.originalName })} onClick={() => setView({ sub: s, i })}>
+                <Eye size={14} /> <span>{f.originalName}</span>
+              </button>
+              <button className="btn btn-ghost icon-btn" aria-label={t('Download {x}', { x: f.originalName })} onClick={() => downloadSubmissionFile(s._id, i, f.originalName)}><Download size={14} /></button>
+            </div>
           ))}
           {s.final && (
             <div className="stack">
               <div className="row"><span className="total">{s.final.totalScore}</span><span className="muted">/ 100</span></div>
               {s.final.overview && <p className="small">{s.final.overview}</p>}
               <div className="row">
-                <Link className="btn btn-primary btn-sm" to={`/feedback/${s._id}`}><MessageSquareText size={14} /> View full feedback</Link>
+                <Link className="btn btn-primary btn-sm" to={`/feedback/${s._id}`}><MessageSquareText size={14} /> {t('View full feedback')}</Link>
                 <button className="btn btn-sm" onClick={() => downloadFeedbackPdf(s._id)}><FileDown size={14} /> PDF</button>
               </div>
             </div>
           )}
-          {s.status === 'under_review' && <p className="small muted">Your instructor is reviewing this. You’ll see the grade here once it’s approved.</p>}
+          {s.status === 'under_review' && <p className="small muted">{t('Your instructor is reviewing this. You’ll see the grade here once it’s approved.')}</p>}
         </div>
       ))}
+      {view && <FileViewerModal open onClose={() => setView(null)} files={view.sub.files} source={{ type: 'submission', id: view.sub._id }} initial={view.i} />}
     </div>
   );
 }
 
 export default function AssignmentPage() {
+  const t = useT();
   const { id } = useParams();
   const { user } = useAuth();
   const { data, error, loading } = useFetch(`/assignments/${id}`);
@@ -157,23 +167,23 @@ export default function AssignmentPage() {
 
   return (
     <div className="page">
-      <Link to={`/courses/${a.course}`} className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> Back to course</Link>
+      <Link to={`/courses/${a.course}`} className="btn btn-ghost btn-sm" style={{ paddingInline: 0 }}><ArrowLeft size={15} /> {t('Back to course')}</Link>
       <div className="page-head" style={{ marginTop: 8 }}>
         <div>
           <span className="small muted">{a.code}</span>
           <h1>{a.title}</h1>
         </div>
         <span className="spacer" />
-        {a.canEdit && <Link className="btn" to={`/assignments/${a._id}/edit`}><Pencil size={15} /> Edit</Link>}
+        {a.canEdit && <Link className="btn" to={`/assignments/${a._id}/edit`}><Pencil size={15} /> {t('Edit')}</Link>}
       </div>
 
       <div className="brief-layout">
         <AssignmentBrief a={a} />
         <aside className="brief-aside">
           {a.tasks?.length > 0 && (
-            <nav className="card task-rail" aria-label="Tasks">
-              <h3 style={{ marginBottom: 8 }}>Tasks</h3>
-              <ol>{a.tasks.map((t, i) => <li key={i}><a href={`#task-${i + 1}`}>{t.title}</a></li>)}</ol>
+            <nav className="card task-rail" aria-label={t('Tasks')}>
+              <h3 style={{ marginBottom: 8 }}>{t('Tasks')}</h3>
+              <ol>{a.tasks.map((tk, i) => <li key={i}><a href={`#task-${i + 1}`}>{tk.title}</a></li>)}</ol>
             </nav>
           )}
           <AttachmentList assignment={a} />
@@ -181,10 +191,10 @@ export default function AssignmentPage() {
           {isEmployee && !isLesson && <MySubmissions subs={list} />}
           {isEmployee && (
             <div className="card stack help-card">
-              <strong>Stuck on something?</strong>
-              <p className="small">Ask your instructor — you’ll get a reply under Help &amp; support.</p>
+              <strong>{t('Stuck on something?')}</strong>
+              <p className="small">{t('Ask your instructor — you’ll get a reply under Help & support.')}</p>
               <Link className="btn btn-sm" to={`/support?new=&course=${a.course}&assignment=${a._id}&subject=${encodeURIComponent(`Question about ${a.code}`)}`}>
-                <MessageCircleQuestion size={14} /> Ask your instructor
+                <MessageCircleQuestion size={14} /> {t('Ask your instructor')}
               </Link>
             </div>
           )}

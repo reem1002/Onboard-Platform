@@ -9,6 +9,9 @@ const companySchema = new Schema(
     // Number of employee accounts this customer has purchased; the company admin can't exceed it
     seatLimit: { type: Number, default: 10, min: 0, max: 100000 },
     // Storage for employee submissions in MB. null = use the platform default; 0 = unlimited
+    // Branding shown to this company's admins and employees (and on their certificates)
+    accentColor: { type: String, match: /^#[0-9a-fA-F]{6}$/ },
+    logo: { storedName: String, mimeType: String, updatedAt: Date },
     storageQuotaMB: { type: Number, default: null, min: 0, max: 10485760 },
   },
   { timestamps: true }

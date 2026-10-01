@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   AlertTriangle, ArrowRight, CalendarClock, CheckCircle2, Clock, Info, LifeBuoy, RotateCcw, Sparkles, Users,
@@ -7,6 +7,7 @@ import { api, errorMessage } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { ErrorBox, Progress, fmtDate, Skeleton, SkeletonText } from '../components/ui';
 import { NotifIcon, timeAgo } from '../components/notifications';
+import { useT, dateLocale } from '../lib/i18n';
 
 const greeting = () => {
   const h = new Date().getHours();
@@ -17,14 +18,17 @@ const hrs = (h) => (h === null || h === undefined ? '—' : h < 24 ? `${Math.rou
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const t = useT();
   const [home, setHome] = useState(null);
   const [feed, setFeed] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setError('');
     api.get('/dashboard/home').then(({ data }) => setHome(data)).catch((e) => setError(errorMessage(e)));
     api.get('/notifications', { params: { limit: 8 } }).then(({ data }) => setFeed(data)).catch(() => setFeed({ items: [], unread: 0 }));
   }, []);
+  useEffect(() => { setHome(null); load(); }, [load, user._id]);
 
   const markAll = async () => {
     await api.post('/notifications/read', {}).catch(() => {});
@@ -35,12 +39,12 @@ export default function Dashboard() {
     <div className="page">
       <div className="page-head">
         <div>
-          <p className="muted small" style={{ marginTop: 0 }}>{new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}</p>
-          <h1>{greeting()}, {user.name.split(' ')[0]}</h1>
-          {home && <p>{summaryLine(home)}</p>}
+          <p className="muted small" style={{ marginTop: 0 }}>{new Date().toLocaleDateString(dateLocale(), { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+          <h1>{t(greeting())}{t(', ')}{user.name.split(' ')[0]}</h1>
+          {home && <p>{summaryLine(home, t)}</p>}
         </div>
       </div>
-      <ErrorBox>{error}</ErrorBox>
+      {error && <div className="alert alert-error row" role="alert"><span style={{ flex: 1 }}>{error}</span><button className="btn btn-sm" onClick={load}>{t('Try again')}</button></div>}
       {!home && !error ? <DashSkeleton /> : home && (
         <div className="dash">
           <div className="dash-main">
@@ -52,12 +56,12 @@ export default function Dashboard() {
           <aside className="dash-side">
             <section className="card">
               <div className="row" style={{ marginBottom: 'var(--sp-2)', flexWrap: 'nowrap' }}>
-                <h2 className="h-card" style={{ whiteSpace: 'nowrap' }}>What’s new</h2>
+                <h2 className="h-card" style={{ whiteSpace: 'nowrap' }}>{t('What’s new')}</h2>
                 <span className="spacer" />
-                {feed?.unread > 0 && <button className="btn btn-ghost btn-sm" style={{ paddingInline: 6 }} onClick={markAll} title={`${feed.unread} unread`}>Mark {feed.unread} read</button>}
+                {feed?.unread > 0 && <button className="btn btn-ghost btn-sm" style={{ paddingInline: 6 }} onClick={markAll} title={`${feed.unread} unread`}>{t('Mark {n} read', { n: feed.unread })}</button>}
               </div>
               {!feed ? <SkeletonText lines={5} /> : feed.items.length === 0 ? (
-                <p className="muted small">Nothing new yet. Updates about grades, courses and support replies show up here.</p>
+                <p className="muted small">{t('Nothing new yet. Updates about grades, courses and support replies show up here.')}</p>
               ) : (
                 <ul className="feed">
                   {feed.items.map((i) => (
@@ -95,38 +99,40 @@ function DashSkeleton() {
   );
 }
 
-function summaryLine(d) {
+function summaryLine(d, t) {
   const s = d.stats || {};
   switch (d.role) {
     case 'employee':
-      if (d.toFix?.length) return `${d.toFix.length} piece${d.toFix.length > 1 ? 's' : ''} of work came back for rework — start there.`;
-      if (d.upNext?.length) return `You’re ${Math.round(s.avgPct)}% through your training. Next up: ${d.upNext[0].code} — ${d.upNext[0].title}.`;
-      return s.courses ? 'You’re all caught up. Nice work.' : 'You haven’t been assigned a course yet.';
+      if (d.toFix?.length) return t(d.toFix.length > 1 ? '{n} pieces of work came back for rework — start there.' : '1 piece of work came back for rework — start there.', { n: d.toFix.length });
+      if (d.upNext?.length) return t('You’re {pct}% through your training. Next up: {item}.', { pct: Math.round(s.avgPct), item: `${d.upNext[0].code} — ${d.upNext[0].title}` });
+      return s.courses ? t('You’re all caught up. Nice work.') : t('You haven’t been assigned a course yet.');
     case 'instructor':
-      return s.toReview + s.aiFailed ? `${s.toReview + s.aiFailed} submission${s.toReview + s.aiFailed > 1 ? 's' : ''} waiting for your review.` : 'Your review queue is empty.';
+      return s.toReview + s.aiFailed ? t('{n} submission(s) waiting for your review.', { n: s.toReview + s.aiFailed }) : t('Your review queue is empty.');
     case 'company_admin':
-      return `${s.employees} active employee${s.employees === 1 ? '' : 's'}, ${Math.round(s.avgPct)}% average progress${s.needsAttention ? ` — ${s.needsAttention} need${s.needsAttention === 1 ? 's' : ''} attention` : ''}.`;
+      return t('{n} active employee(s), {pct}% average progress', { n: s.employees, pct: Math.round(s.avgPct) }) + (s.needsAttention ? t(' — {n} need(s) attention', { n: s.needsAttention }) : '') + '.';
     case 'super_admin':
-      return `${s.pendingReview} submission${s.pendingReview === 1 ? '' : 's'} pending review across the platform, ${s.openPlatformTickets} open support request${s.openPlatformTickets === 1 ? '' : 's'}.`;
+      return t('{n} submission(s) pending review across the platform, {m} open support request(s).', { n: s.pendingReview, m: s.openPlatformTickets });
     default: return '';
   }
 }
 
 function Stat({ label, value, hint }) {
+  const t = useT();
   return (
     <div className="stat">
       <b>{value}</b>
-      <span>{label}</span>
-      {hint && <small className="stat-hint">{hint}</small>}
+      <span>{t(label)}</span>
+      {hint && <small className="stat-hint">{t(hint)}</small>}
     </div>
   );
 }
 
 function Section({ title, action, children }) {
+  const t = useT();
   return (
     <section className="card dash-section">
       <div className="row dash-section-head">
-        <h2 className="h-card">{title}</h2>
+        <h2 className="h-card">{t(title)}</h2>
         <span className="spacer" />
         {action}
       </div>
@@ -135,10 +141,14 @@ function Section({ title, action, children }) {
   );
 }
 
-const ViewAll = ({ to, children = 'View all' }) => <Link to={to} className="small link-arrow">{children} <ArrowRight size={14} /></Link>;
+function ViewAll({ to, children = 'View all' }) {
+  const t = useT();
+  return <Link to={to} className="small link-arrow">{t(children)} <ArrowRight size={14} /></Link>;
+}
 
 /* ---------------------------- Employee ---------------------------- */
 function EmployeeHome({ d }) {
+  const t = useT();
   const s = d.stats;
   return (
     <>
@@ -151,8 +161,8 @@ function EmployeeHome({ d }) {
 
       {d.toFix.length > 0 && (
         <section className="card attention-card">
-          <div className="row"><RotateCcw size={18} /><h2 className="h-card">Returned for rework</h2></div>
-          <p className="small" style={{ margin: '6px 0 var(--sp-2)' }}>Your instructor asked for changes. Read the feedback, update your work and resubmit.</p>
+          <div className="row"><RotateCcw size={18} /><h2 className="h-card">{t('Returned for rework')}</h2></div>
+          <p className="small" style={{ margin: '6px 0 var(--sp-2)' }}>{t('Your instructor asked for changes. Read the feedback, update your work and resubmit.')}</p>
           <ul className="list-links">
             {d.toFix.map((t) => <li key={t.link}><Link to={t.link}><span className="item-code">{t.code}</span> {t.title}<ArrowRight size={14} /></Link></li>)}
           </ul>
@@ -176,17 +186,17 @@ function EmployeeHome({ d }) {
       )}
 
       <Section title="My courses" action={<ViewAll to="/courses" />}>
-        {d.courses.length === 0 ? <p className="muted small">When your company assigns you a course it will appear here.</p> : (
+        {d.courses.length === 0 ? <p className="muted small">{t('When your company assigns you a course it will appear here.')}</p> : (
           <div className="dash-courses">
             {d.courses.map((c) => (
               <Link key={c._id} to={`/courses/${c._id}`} className="dash-course">
                 <div className="row"><span className="item-code">{c.code}</span><span className="spacer" /><DueChip c={c} /></div>
                 <strong>{c.title}</strong>
                 <div className="row small muted">
-                  <span>{c.completed}/{c.total} done</span><span className="spacer" /><span>{c.pct}%</span>
+                  <span>{t('{a}/{b} done', { a: c.completed, b: c.total })}</span><span className="spacer" /><span>{c.pct}%</span>
                 </div>
                 <Progress value={c.pct} ok={c.pct === 100} />
-                {c.currentMilestone && <span className="small muted">Now: {c.currentMilestone}</span>}
+                {c.currentMilestone && <span className="small muted">{t('Now:')} {c.currentMilestone}</span>}
               </Link>
             ))}
           </div>
@@ -194,7 +204,7 @@ function EmployeeHome({ d }) {
       </Section>
 
       <Section title="Recent grades">
-        {d.recentGrades.length === 0 ? <p className="muted small">Graded work and feedback will appear here.</p> : (
+        {d.recentGrades.length === 0 ? <p className="muted small">{t('Graded work and feedback will appear here.')}</p> : (
           <ul className="list-links">
             {d.recentGrades.map((g) => (
               <li key={g.link}>
@@ -213,21 +223,24 @@ function EmployeeHome({ d }) {
 }
 
 function DueChip({ c }) {
-  if (c.pct === 100) return <span className="chip chip-ok"><CheckCircle2 size={12} /> Complete</span>;
+  const t = useT();
+  if (c.pct === 100) return <span className="chip chip-ok"><CheckCircle2 size={12} /> {t('Complete')}</span>;
   if (c.daysLeft === null || c.daysLeft === undefined) return null;
-  if (c.overdue) return <span className="chip chip-danger"><AlertTriangle size={12} /> Overdue</span>;
-  if (c.daysLeft <= 7) return <span className="chip chip-warn"><CalendarClock size={12} /> {c.daysLeft} day{c.daysLeft === 1 ? '' : 's'} left</span>;
-  return <span className="chip"><CalendarClock size={12} /> Due {fmtDate(c.dueAt)}</span>;
+  if (c.overdue) return <span className="chip chip-danger"><AlertTriangle size={12} /> {t('Overdue')}</span>;
+  if (c.daysLeft <= 7) return <span className="chip chip-warn"><CalendarClock size={12} /> {t(c.daysLeft === 1 ? '1 day left' : '{n} days left', { n: c.daysLeft })}</span>;
+  return <span className="chip"><CalendarClock size={12} /> {t('Due {date}', { date: fmtDate(c.dueAt) })}</span>;
 }
 
 function ScorePill({ score, max = 100 }) {
+  const t = useT();
   const pct = max ? (score / max) * 100 : 0;
   const label = pct >= 80 ? 'Strong' : pct >= 60 ? 'Pass' : 'Below target';
-  return <span className={`score-pill ${pct >= 80 ? 'good' : pct >= 60 ? 'ok' : 'low'}`} title={label}><b>{score}</b>/{max}</span>;
+  return <span className={`score-pill ${pct >= 80 ? 'good' : pct >= 60 ? 'ok' : 'low'}`} title={t(label)}><b>{score}</b>/{max}</span>;
 }
 
 /* ---------------------------- Instructor ---------------------------- */
 function InstructorHome({ d }) {
+  const t = useT();
   const s = d.stats;
   return (
     <>
@@ -235,13 +248,13 @@ function InstructorHome({ d }) {
         <Stat label="Waiting for review" value={s.toReview} />
         <Stat label="Needs manual grading" value={s.aiFailed} hint={s.aiFailed ? 'AI couldn’t grade these' : undefined} />
         <Stat label="Open questions" value={s.openQuestions} />
-        <Stat label="Reviewed this week" value={s.reviewedThisWeek} hint={`Avg turnaround ${hrs(s.avgTurnaroundHours)}`} />
+        <Stat label="Reviewed this week" value={s.reviewedThisWeek} hint={t('Avg turnaround {x}', { x: hrs(s.avgTurnaroundHours) })} />
       </div>
 
       <Section title="Review queue" action={<ViewAll to="/review" />}>
         {d.queue.length === 0 ? <p className="muted small">Nothing waiting. New submissions show up here as soon as the AI draft is ready.</p> : (
           <table className="table">
-            <thead><tr><th>Employee</th><th>Item</th><th>Status</th><th>AI draft</th><th>Waiting</th><th /></tr></thead>
+            <thead><tr><th>{t('Employee')}</th><th>{t('Item')}</th><th>{t('Status')}</th><th>{t('AI draft')}</th><th>{t('Waiting')}</th><th /></tr></thead>
             <tbody>
               {d.queue.map((q) => (
                 <tr key={q._id}>
@@ -261,7 +274,7 @@ function InstructorHome({ d }) {
       <Section title="My courses">
         {d.courses.length === 0 ? <p className="muted small">An administrator hasn’t assigned you to a course yet.</p> : (
           <table className="table">
-            <thead><tr><th>Course</th><th>Employees</th><th>Avg progress</th><th>Avg grade</th><th>Pending</th></tr></thead>
+            <thead><tr><th>{t('Course')}</th><th>{t('Employees')}</th><th>{t('Avg progress')}</th><th>{t('Avg grade')}</th><th>{t('Pending')}</th></tr></thead>
             <tbody>
               {d.courses.map((c) => (
                 <tr key={c._id}>
@@ -285,7 +298,8 @@ function InstructorHome({ d }) {
 }
 
 function PeopleList({ rows, empty, showCompany }) {
-  if (!rows.length) return <p className="muted small">{empty}</p>;
+  const t = useT();
+  if (!rows.length) return <p className="muted small">{t(empty)}</p>;
   return (
     <ul className="list-links">
       {rows.map((r, i) => (
@@ -296,7 +310,7 @@ function PeopleList({ rows, empty, showCompany }) {
               <strong>{r.name}</strong>
               <span className="small muted">{showCompany && r.company ? ` · ${r.company}` : ''}{r.course ? ` · ${r.course}` : ''}{r.pct !== undefined ? ` · ${r.pct}%` : ''}</span>
             </span>
-            <span className="chip chip-warn">{r.reason}</span>
+            <span className="chip chip-warn">{t(r.reason)}</span>
           </Link>
         </li>
       ))}
@@ -306,6 +320,7 @@ function PeopleList({ rows, empty, showCompany }) {
 
 /* ---------------------------- Company admin ---------------------------- */
 function CompanyHome({ d }) {
+  const t = useT();
   const s = d.stats;
   const seatPct = d.company.seatLimit ? Math.round((d.company.seatsUsed / d.company.seatLimit) * 100) : 0;
   return (
@@ -320,20 +335,20 @@ function CompanyHome({ d }) {
       <section className="card seats-card">
         <div className="row">
           <Users size={18} />
-          <strong>Seats</strong>
+          <strong>{t('Seats')}</strong>
           <span className="spacer" />
-          <span className="small"><b>{d.company.seatsUsed}</b> of {d.company.seatLimit} used</span>
+          <span className="small">{t('{a} of {b} used', { a: d.company.seatsUsed, b: d.company.seatLimit })}</span>
         </div>
         <Progress value={seatPct} />
-        {seatPct >= 90 && <p className="small" style={{ marginTop: 6 }}><Info size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> You’re close to your limit — contact us through Support to add seats.</p>}
+        {seatPct >= 90 && <p className="small" style={{ marginTop: 6 }}><Info size={13} style={{ display: 'inline', verticalAlign: '-2px' }} /> {t('You’re close to your limit — contact us through Support to add seats.')}</p>}
       </section>
 
       <Section title="Progress by course" action={<ViewAll to="/team">Team progress</ViewAll>}>
-        {d.courses.length === 0 ? <p className="muted small">Assign a course to your employees from the Courses page.</p> : (
+        {d.courses.length === 0 ? <p className="muted small">{t('Assign a course to your employees from the Courses page.')}</p> : (
           <div className="hbars" role="list">
             {d.courses.map((c) => (
               <div className="hbar" role="listitem" key={c._id}>
-                <span className="hbar-label"><strong>{c.code}</strong> <span className="muted small">{c.enrolled} enrolled</span></span>
+                <span className="hbar-label"><strong>{c.code}</strong> <span className="muted small">{t('{n} enrolled', { n: c.enrolled })}</span></span>
                 <span className="hbar-track" title={`${c.code}: ${c.avgPct}% average progress`}><span style={{ width: `${c.avgPct}%` }} /></span>
                 <span className="hbar-val">{c.avgPct}%</span>
               </div>
@@ -347,7 +362,7 @@ function CompanyHome({ d }) {
       </Section>
 
       <Section title="Latest graded work" action={<ViewAll to="/reports/shared">Shared reports</ViewAll>}>
-        {d.recentResults.length === 0 ? <p className="muted small">Grades appear here once an instructor approves them.</p> : (
+        {d.recentResults.length === 0 ? <p className="muted small">{t('Grades appear here once an instructor approves them.')}</p> : (
           <ul className="list-links">
             {d.recentResults.map((r, i) => (
               <li key={i}>
@@ -367,6 +382,7 @@ function CompanyHome({ d }) {
 
 /* ---------------------------- Platform admin ---------------------------- */
 function AdminHome({ d }) {
+  const t = useT();
   const s = d.stats;
   return (
     <>
@@ -379,7 +395,7 @@ function AdminHome({ d }) {
 
       {d.alerts.length > 0 && (
         <section className="card attention-card">
-          <div className="row"><AlertTriangle size={18} /><h2 className="h-card">Needs action</h2></div>
+          <div className="row"><AlertTriangle size={18} /><h2 className="h-card">{t('Needs action')}</h2></div>
           <ul className="list-links" style={{ marginTop: 'var(--sp-2)' }}>
             {d.alerts.map((a, i) => (
               <li key={i}><Link to={a.link}>{a.kind === 'warning' ? <AlertTriangle size={15} className="text-warn" /> : <Info size={15} />}<span className="grow">{a.text}</span><ArrowRight size={14} /></Link></li>
@@ -395,7 +411,7 @@ function AdminHome({ d }) {
       <Section title="Grading backlog by course" action={<ViewAll to="/review">Review queue</ViewAll>}>
         {d.backlog.length === 0 ? <p className="muted small">No backlog — every submission has been reviewed.</p> : (
           <table className="table">
-            <thead><tr><th>Course</th><th>Instructors</th><th>Pending</th><th>Oldest</th></tr></thead>
+            <thead><tr><th>{t('Course')}</th><th>{t('Instructors')}</th><th>{t('Pending')}</th><th>{t('Oldest')}</th></tr></thead>
             <tbody>
               {d.backlog.map((b) => (
                 <tr key={b._id}>
@@ -459,6 +475,7 @@ function roundedTop(x, y, w, h, r) {
 }
 
 function SupportCard({ d }) {
+  const t = useT();
   const map = {
     employee: [d.support?.replies, 'repl', 'Your questions go straight to your course instructor.'],
     company_admin: [d.support?.waiting, 'repl', 'Questions about seats, access or courses go to our team.'],
@@ -467,15 +484,15 @@ function SupportCard({ d }) {
   }[d.role];
   if (!map) return null;
   const [count, noun, text] = map;
-  const label = noun === 'repl' ? `${count} new repl${count === 1 ? 'y' : 'ies'}` : `${count} open ${noun}${count === 1 ? '' : 's'}`;
+  const label = noun === 'repl' ? t(count === 1 ? '1 new reply' : '{n} new replies', { n: count }) : t(noun === 'question' ? '{n} open question(s)' : '{n} open request(s)', { n: count });
   return (
     <section className="card support-card">
-      <div className="row"><LifeBuoy size={18} /><h2 className="h-card">Support</h2></div>
-      <p className="small" style={{ margin: '6px 0 var(--sp-2)' }}>{text}</p>
+      <div className="row"><LifeBuoy size={18} /><h2 className="h-card">{t('Support')}</h2></div>
+      <p className="small" style={{ margin: '6px 0 var(--sp-2)' }}>{t(text)}</p>
       <div className="row">
         {count > 0 && <span className="chip chip-info">{label}</span>}
         <span className="spacer" />
-        <Link to="/support" className="btn btn-sm">{d.role === 'employee' || d.role === 'company_admin' ? 'Get help' : 'Open'} <ArrowRight size={14} /></Link>
+        <Link to="/support" className="btn btn-sm">{t(d.role === 'employee' || d.role === 'company_admin' ? 'Get help' : 'Open')} <ArrowRight size={14} /></Link>
       </div>
     </section>
   );

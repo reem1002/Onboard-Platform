@@ -26,7 +26,9 @@ async function courseProgress(course, studentId, preload = {}) {
   const bestAttempt = new Map();
   for (const a of attempts) {
     const k = String(a.quiz);
-    if (!bestAttempt.has(k) || a.score > bestAttempt.get(k).score) bestAttempt.set(k, a);
+    const cur = bestAttempt.get(k);
+    // A passed attempt always wins over a higher-scoring one that didn't count (e.g. submitted after the time limit)
+    if (!cur || (a.passed && !cur.passed) || (a.passed === cur.passed && a.score > cur.score)) bestAttempt.set(k, a);
   }
 
   const msOrder = new Map([...course.milestones].sort((a, b) => a.order - b.order).map((m, i) => [String(m._id), i]));

@@ -4,6 +4,7 @@ const { Schema, model } = require('mongoose');
 const TYPES = [
   'course_assigned', 'graded', 'returned', 'ticket_reply', 'ticket_new', 'submission_new', 'submission_ai_ready',
   'course_instructor', 'course_published', 'employee_completed', 'seat_limit_reached', 'seats_changed', 'report_shared', 'quiz_failed_out',
+  'certificate_issued', 'quiz_extra_attempt', 'due_soon', 'overdue', 'review_waiting',
 ];
 
 const notificationSchema = new Schema(

@@ -5,6 +5,7 @@ import { useFetch } from '../api/useFetch';
 import { api, errorMessage } from '../api/client';
 import { useAuth, can } from '../context/AuthContext';
 import { ErrorBox, Progress, fmtDate, Skeleton, SkeletonText } from '../components/ui';
+import { useT } from '../lib/i18n';
 
 /** Platform admin: create a course shell (milestones), then add assignments inside it. */
 function NewCourseModal({ onClose }) {
@@ -45,6 +46,7 @@ export default function Courses() {
   const { data, error, loading } = useFetch('/courses');
   const [creating, setCreating] = useState(false);
   const isEmployee = user.role === 'employee';
+  const t = useT();
 
   const intro = {
     employee: 'These are the courses your company assigned to you.',
@@ -52,28 +54,29 @@ export default function Courses() {
     company_admin: 'Courses available to your company. Open one to assign it to employees.',
     super_admin: 'Every course on the platform.',
   }[user.role];
+  const tIntro = t(intro);
 
   return (
     <div className="page">
       <div className="page-head">
         <div>
-          <h1>{isEmployee ? `Welcome, ${user.name.split(' ')[0]}` : user.role === 'instructor' ? 'My courses' : 'Courses'}</h1>
-          <p>{intro}</p>
+          <h1>{isEmployee ? t('Welcome, {name}', { name: user.name.split(' ')[0] }) : user.role === 'instructor' ? t('My courses') : t('Courses')}</h1>
+          <p>{tIntro}</p>
         </div>
         <span className="spacer" />
-        {can.admin(user) && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} /> New course</button>}
+        {can.admin(user) && <button className="btn btn-primary" onClick={() => setCreating(true)}><Plus size={16} /> {t('New course')}</button>}
       </div>
       <ErrorBox>{error}</ErrorBox>
       {loading ? (
         <div className="course-grid">{[0, 1, 2].map((i) => <div key={i} className="card skel-card"><Skeleton w={90} h={22} r={999} /><Skeleton w="85%" h={20} style={{ marginTop: 14 }} /><SkeletonText lines={2} /><Skeleton h={8} style={{ marginTop: 18 }} /></div>)}</div>
       ) : !data?.courses?.length ? (
         <div className="card empty">
-          <h3>No courses yet</h3>
+          <h3>{t('No courses yet')}</h3>
           <p>
-            {isEmployee ? 'Your manager hasn’t assigned a course to you yet.'
+            {t(isEmployee ? 'Your manager hasn’t assigned a course to you yet.'
               : user.role === 'instructor' ? 'The platform admin hasn’t assigned you to a course yet.'
               : can.admin(user) ? 'Create your first course to start building assignments.'
-              : 'No courses are available to your company yet.'}
+              : 'No courses are available to your company yet.')}
           </p>
         </div>
       ) : (
@@ -90,19 +93,19 @@ export default function Courses() {
                   {isEmployee ? (
                     <>
                       <div className="row small">
-                        <span>{c.progress.approved} of {c.progress.total} graded</span>
+                        <span>{t('{a} of {b} graded', { a: c.progress.approved, b: c.progress.total })}</span>
                         <span className="spacer" />
                         <strong>{pct}%</strong>
                       </div>
                       <Progress value={pct} ok={pct === 100} />
-                      {c.enrollment?.dueAt && <span className="small muted">Due {fmtDate(c.enrollment.dueAt)}</span>}
+                      {c.enrollment?.dueAt && <span className="small muted">{t('Due {date}', { date: fmtDate(c.enrollment.dueAt) })}</span>}
                     </>
                   ) : (
                     <div className="row">
-                      <span className="chip">{c.isPublished ? 'Published' : 'Draft'}</span>
+                      <span className="chip">{c.isPublished ? t('Published') : t('Draft')}</span>
                       {can.admin(user) && (
                         <span className="small muted">
-                          {c.instructors?.length ? `Instructors: ${c.instructors.map((i) => i.name).join(', ')}` : 'No instructor assigned'}
+                          {c.instructors?.length ? t('Instructors: {names}', { names: c.instructors.map((i) => i.name).join(', ') }) : t('No instructor assigned')}
                         </span>
                       )}
                     </div>

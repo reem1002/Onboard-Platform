@@ -46,6 +46,9 @@ app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/reports', require('./routes/reports'));
 app.use('/api/notifications', require('./routes/notifications'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/branding', require('./routes/branding'));
+app.use('/api/certificates', require('./routes/certificates'));
+app.use('/api/exports', require('./routes/exports'));
 
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 app.use(errorHandler);

@@ -3,9 +3,11 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { api } from '../api/client';
 import { NotifIcon, timeAgo } from './notifications';
+import { useT } from '../lib/i18n';
 
 /** Bell + dropdown of recent in-app notifications. Polls every 60 s (and on navigation). */
 export default function NotificationBell() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -17,11 +19,20 @@ export default function NotificationBell() {
     .then(({ data }) => { setItems(data.items); setUnread(data.unread); })
     .catch(() => {}), []);
 
-  useEffect(() => {
+  // Poll every 60 s and when the tab regains focus; navigating doesn't refetch more than every 20 s
+  const last = useRef(0);
+  const throttled = useCallback(() => {
+    if (Date.now() - last.current < 20000) return;
+    last.current = Date.now();
     load();
-    const t = setInterval(load, 60000);
-    return () => clearInterval(t);
-  }, [load, loc.pathname]);
+  }, [load]);
+  useEffect(() => {
+    const t = setInterval(() => { last.current = Date.now(); load(); }, 60000);
+    window.addEventListener('focus', throttled);
+    return () => { clearInterval(t); window.removeEventListener('focus', throttled); };
+  }, [load, throttled]);
+  useEffect(() => { throttled(); }, [loc.pathname, throttled]);
+  useEffect(() => { if (open) load(); }, [open, load]);
 
   useEffect(() => setOpen(false), [loc.pathname]);
 
@@ -49,19 +60,19 @@ export default function NotificationBell() {
 
   return (
     <div className="bell" ref={box}>
-      <button className="btn btn-ghost icon-btn bell-btn" aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button className="btn btn-ghost icon-btn bell-btn" aria-label={unread ? t('Notifications, {n} unread', { n: unread }) : t('Notifications')} aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         <Bell size={19} />
         {unread > 0 && <span className="bell-count">{unread > 99 ? '99+' : unread}</span>}
       </button>
       {open && (
-        <div className="bell-menu" role="dialog" aria-label="Notifications">
+        <div className="bell-menu" role="dialog" aria-label={t('Notifications')}>
           <div className="bell-head">
-            <strong>Notifications</strong>
+            <strong>{t('Notifications')}</strong>
             <span className="spacer" />
-            {unread > 0 && <button className="btn btn-ghost btn-sm" onClick={markAll}><CheckCheck size={14} /> Mark all read</button>}
+            {unread > 0 && <button className="btn btn-ghost btn-sm" onClick={markAll}><CheckCheck size={14} /> {t('Mark all read')}</button>}
           </div>
           {items.length === 0 ? (
-            <p className="muted small" style={{ padding: 'var(--sp-4)', textAlign: 'center' }}>You’re all caught up.</p>
+            <p className="muted small" style={{ padding: 'var(--sp-4)', textAlign: 'center' }}>{t('You’re all caught up.')}</p>
           ) : (
             <ul className="notif-list">
               {items.map((n) => (
@@ -78,7 +89,7 @@ export default function NotificationBell() {
               ))}
             </ul>
           )}
-          <button className="bell-foot" onClick={() => { setOpen(false); nav('/dashboard'); }}>Open dashboard</button>
+          <button className="bell-foot" onClick={() => { setOpen(false); nav('/dashboard'); }}>{t('Open dashboard')}</button>
         </div>
       )}
     </div>

@@ -69,7 +69,10 @@ api.interceptors.response.use(
 );
 
 export const errorMessage = (e, fallback = 'Something went wrong. Try again.') => {
-  const d = e?.response?.data;
+  if (e?.code === 'ERR_CANCELED') return 'Cancelled.';
+  if (!e?.response) return 'Can’t reach the server — check your connection (or that the API is running) and try again.';
+  const d = e.response.data;
+  if (e.response.status === 429 && !d?.error) return 'Too many requests — please wait a minute and try again.';
   if (d?.details?.fieldErrors) {
     const first = Object.entries(d.details.fieldErrors)[0];
     if (first) return `${first[0]}: ${first[1][0]}`;

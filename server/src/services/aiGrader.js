@@ -161,6 +161,14 @@ async function callModel({ brief, submissionText }) {
 }
 
 const { getSettings } = require('./settings');
+
+/** Small models sometimes copy placeholders or write their own number — the overview must use the real name and total. */
+function fixOverview(text, { studentName, total, max = 100 }) {
+  return text
+    .replace(/<\s*(student\s*)?name\s*>|\[\s*(student\s*)?name\s*\]|\{\{\s*(student\s*)?name\s*\}\}/gi, studentName)
+    .replaceAll('{{TOTAL}}', String(total))
+    .replace(/(earned\s+)\d+(?:\.\d+)?\s*\/\s*100\b/i, `$1${total}/${max}`);
+}
 const { runPrechecks } = require('./grading/precheck');
 const { runPipeline } = require('./grading/pipeline');
 const { ollamaProvider, claudeProvider } = require('./grading/providers');
@@ -214,6 +222,16 @@ async function gradeSubmission(submissionId, opts = {}) {
     const pre = runPrechecks({ assignment, text: fullText, peers: peers.filter((p) => p.fingerprint?.length).map((p) => ({ fingerprint: p.fingerprint, name: p.student?.name || 'another employee' })) });
     sub.fingerprint = pre.fingerprint;
 
+    // Nothing (or almost nothing) readable: an AI draft would be invented — hand it straight to the instructor
+    if (pre.wordCount < 60) {
+      sub.status = 'ai_failed';
+      sub.ai = { checks: pre.flags, error: 'Could not read enough text from the submission (scanned PDF, images or empty file) — please grade it manually using the file viewer.', durationMs: Date.now() - started };
+      await sub.save();
+      const { notify, instructorsOf } = require('./notify');
+      await notify(await instructorsOf(sub.course), { type: 'submission_new', title: `Grade manually: ${assignment.code}`, body: `${studentName}'s file has little or no readable text — open it in the viewer.`, link: `/review/${sub._id}` });
+      return sub;
+    }
+
     let out;
     let criteria;
     let confidence;
@@ -239,16 +257,14 @@ async function gradeSubmission(submissionId, opts = {}) {
       // In-house pipeline: criterion by criterion, verified evidence, calibration from past instructor grades
       const cfg = engine.settings;
       const provider = opts.provider || (engine.kind === 'claude' ? claudeProvider() : ollamaProvider({ model: cfg.localModel }));
-      let text = fullText;
-      if (text.length > cfg.maxChars) {
-        text = text.slice(0, cfg.maxChars);
-        pre.flags.push({ kind: 'truncated_for_ai', severity: 'info', message: `Only the first ${cfg.maxChars.toLocaleString()} characters were sent to the AI — check the rest yourself.` });
+      if (fullText.length > cfg.maxChars) {
+        pre.flags.push({ kind: 'long_submission', severity: 'info', message: `Long submission (${Math.round(fullText.length / 1000)}k characters) — for each criterion the AI read the most relevant ~${Math.round(cfg.maxChars / 1000)}k characters.` });
       }
       const examples = cfg.useExamples
         ? await Submission.find({ assignment: assignment._id, status: 'approved', _id: { $ne: sub._id }, 'final.criteria.0': { $exists: true } })
           .sort({ 'final.reviewedAt': -1 }).limit(3).select('final.criteria ai.criteria').lean()
         : [];
-      const r = await runPipeline({ provider, assignment, studentName, text, examples, runs: cfg.runs || 1, precheckFlags: pre.flags });
+      const r = await runPipeline({ provider, assignment, studentName, text: fullText, examples, runs: cfg.runs || 1, precheckFlags: pre.flags, budget: cfg.maxChars });
       criteria = r.criteria.map(({ unverifiedEvidence, ...c }) => c);
       out = r.feedback;
       confidence = r.confidence;
@@ -270,7 +286,7 @@ async function gradeSubmission(submissionId, opts = {}) {
       checks: pre.flags,
       criteria,
       totalScore,
-      overview: str(out.overview, 3000).replaceAll('{{TOTAL}}', String(totalScore)),
+      overview: fixOverview(str(out.overview, 3000), { studentName, total: totalScore, max: assignment.maxScore }),
       strengths: (out.strengths || []).slice(0, 6).map((x) => ({ task: str(x?.task, 300), detail: str(x?.detail, 2000) })),
       improvements: (out.improvements || []).slice(0, 6).map((x) => ({ task: str(x?.task, 300), issue: str(x?.issue, 2000), suggestion: str(x?.suggestion, 2000) })),
       closing: str(out.closing, 1000),
@@ -336,4 +352,4 @@ async function resumePending() {
   for (const s of pending) await enqueue(s._id);
 }
 
-module.exports = { gradeSubmission, enqueue, resumePending, weightedTotal, buildBrief, activeEngine, queueStatus };
+module.exports = { fixOverview, gradeSubmission, enqueue, resumePending, weightedTotal, buildBrief, activeEngine, queueStatus };

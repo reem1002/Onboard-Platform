@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, errorMessage } from '../api/client';
 import { ErrorBox, Loader } from '../components/ui';
 import PasswordField, { passwordOk } from '../components/PasswordField';
+import { useT } from '../lib/i18n';
 import { AuthShell } from './Login';
 
 export default function ResetPassword() {
+  const t = useT();
   const [params] = useSearchParams();
   const token = params.get('token') || '';
   const nav = useNavigate();
@@ -25,7 +27,7 @@ export default function ResetPassword() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (pw !== pw2) return setError('The two passwords don’t match.');
+    if (pw !== pw2) return setError(t('The two passwords don’t match.'));
     setBusy(true);
     setError('');
     try {
@@ -42,19 +44,19 @@ export default function ResetPassword() {
     <AuthShell>
       {check.loading ? <Loader /> : !check.ok ? (
         <div className="stack" style={{ width: 'min(100%, 380px)' }}>
-          <h2>This link doesn’t work anymore</h2>
-          <p>{check.error}</p>
-          <Link to="/forgot-password" className="btn btn-primary">Request a new link</Link>
+          <h2>{t('This link doesn’t work anymore')}</h2>
+          <p>{t(check.error)}</p>
+          <Link to="/forgot-password" className="btn btn-primary">{t('Request a new link')}</Link>
         </div>
       ) : (
         <form onSubmit={submit} className="stack">
-          <h2>Choose a new password</h2>
-          {check.email && <p className="muted small">For {check.email}</p>}
+          <h2>{t('Choose a new password')}</h2>
+          {check.email && <p className="muted small">{t('For {email}', { email: check.email })}</p>}
           <ErrorBox>{error}</ErrorBox>
           <PasswordField id="pw" label="New password" value={pw} onChange={setPw} showRules />
           <PasswordField id="pw2" label="Repeat new password" value={pw2} onChange={setPw2} />
-          <button className="btn btn-primary" disabled={busy || !passwordOk(pw) || !pw2}>{busy ? 'Saving…' : 'Save new password'}</button>
-          <p className="small muted">You’ll be signed out of every other device.</p>
+          <button className="btn btn-primary" disabled={busy || !passwordOk(pw) || !pw2}>{busy ? t('Saving…') : t('Save new password')}</button>
+          <p className="small muted">{t('You’ll be signed out of every other device.')}</p>
         </form>
       )}
     </AuthShell>

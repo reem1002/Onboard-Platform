@@ -205,6 +205,19 @@ router.get(
   })
 );
 
+router.get(
+  '/:id/attachments/:fileId/preview',
+  validate({ params: z.object({ id: objectId, fileId: objectId }) }),
+  asyncHandler(async (req, res) => {
+    const { assignment } = await loadAssignment(req.user, req.params.id);
+    const f = assignment.attachments.id(req.params.fileId);
+    if (!f) throw new AppError(404, 'Not found');
+    const { buildPreview } = require('../services/preview');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ name: f.originalName, size: f.size, ...(await buildPreview(f)) });
+  })
+);
+
 /* ----- Duplicate (unpublished copy in the same milestone, files copied) ----- */
 router.post(
   '/:id/duplicate',

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronRight, Plus, UserPlus, PlayCircle, ListChecks, Video, FileText, Paperclip, ArrowUpDown } from 'lucide-react';
+import { ChevronRight, Plus, UserPlus, PlayCircle, ListChecks, Video, FileText, Paperclip, ArrowUpDown, Sheet } from 'lucide-react';
 import CourseOutlineEditor from '../components/CourseOutlineEditor';
 import { useFetch } from '../api/useFetch';
 import { api, errorMessage } from '../api/client';
 import { useAuth, can } from '../context/AuthContext';
+import { downloadFile } from '../api/files';
 import { Loader, ErrorBox, StatusChip, fmtDate, PageSkeleton } from '../components/ui';
+import { useT } from '../lib/i18n';
 
 function EnrollModal({ courseId, onClose }) {
   const { data } = useFetch('/users?role=employee&limit=100');
@@ -54,6 +56,7 @@ function EnrollModal({ courseId, onClose }) {
 }
 
 export default function CourseDetail() {
+  const t = useT();
   const { id } = useParams();
   const { user } = useAuth();
   const { data, error, loading, reload } = useFetch(`/courses/${id}`);
@@ -77,7 +80,7 @@ export default function CourseDetail() {
           {course.summary && <p>{course.summary}</p>}
           {can.admin(user) && (
             <p className="small muted" style={{ marginTop: 6 }}>
-              {course.instructors?.length ? `Instructors: ${course.instructors.map((i) => i.name).join(', ')}` : 'No instructor assigned yet — assign one under Instructors.'}
+              {course.instructors?.length ? t('Instructors: {names}', { names: course.instructors.map((i) => i.name).join(', ') }) : t('No instructor assigned yet — assign one under Instructors.')}
             </p>
           )}
         </div>
@@ -90,22 +93,25 @@ export default function CourseDetail() {
               try { await api.patch(`/courses/${course._id}`, { isPublished: !course.isPublished }); reload(); } catch (e) { setPubErr(errorMessage(e)); }
             }}
           >
-            {course.isPublished ? 'Unpublish' : 'Publish course'}
+            {course.isPublished ? t('Unpublish') : t('Publish course')}
           </button>
         )}
         {data.canEdit && !organizing && (
-          <button className="btn" onClick={() => setOrganizing(true)}><ArrowUpDown size={16} /> Organise</button>
+          <button className="btn" onClick={() => setOrganizing(true)}><ArrowUpDown size={16} /> {t('Organise')}</button>
         )}
         {can.report(user) && (data.canEdit || can.manageTeam(user)) && (
-          <Link className="btn" to={`/courses/${course._id}/reports`}><FileText size={16} /> Progress reports</Link>
+          <Link className="btn" to={`/courses/${course._id}/reports`}><FileText size={16} /> {t('Progress reports')}</Link>
+        )}
+        {!isEmployee && (
+          <button className="btn" title={t('Every employee × every graded item, as a spreadsheet')} onClick={() => downloadFile(`/exports/gradebook.csv?course=${course._id}`, `${course.code} gradebook.csv`).catch((e) => setPubErr(errorMessage(e)))}><Sheet size={16} /> {t('Gradebook CSV')}</button>
         )}
         {can.manageTeam(user) && (
-          <button className="btn" onClick={() => setEnrollOpen(true)}><UserPlus size={16} /> Assign to employees</button>
+          <button className="btn" onClick={() => setEnrollOpen(true)}><UserPlus size={16} /> {t('Assign to employees')}</button>
         )}
       </div>
 
       <ErrorBox>{pubErr}</ErrorBox>
-      {!course.isPublished && !isEmployee && <div className="alert alert-ok" style={{ marginBottom: 12 }}>Draft — companies and employees can’t see this course until it’s published.</div>}
+      {!course.isPublished && !isEmployee && <div className="alert alert-ok" style={{ marginBottom: 12 }}>{t('Draft — companies and employees can’t see this course until it’s published.')}</div>}
       {organizing ? (
         <CourseOutlineEditor course={course} assignments={assignments} quizzes={data.quizzes || []} onClose={() => setOrganizing(false)} onSaved={() => { setOrganizing(false); reload(); }} />
       ) : milestones.map((m, idx) => {
@@ -122,28 +128,28 @@ export default function CourseDetail() {
                 {m.title}
                 {m.weeks && <span className="small muted" style={{ fontWeight: 400 }}> — {m.weeks}</span>}
               </span>
-              <span className="small muted">{isEmployee ? `${done}/${count}` : `${items.length + quizzes.length} items`}</span>
+              <span className="small muted">{isEmployee ? `${done}/${count}` : t('{n} items', { n: items.length + quizzes.length })}</span>
             </summary>
-            {[...items.map((a) => ({ t: 'a', o: a.order ?? 0, a })), ...quizzes.map((q) => ({ t: 'q', o: q.order ?? 0, q }))]
+            {[...items.map((a) => ({ k: 'a', o: a.order ?? 0, a })), ...quizzes.map((q) => ({ k: 'q', o: q.order ?? 0, q }))]
               .sort((x, y) => x.o - y.o)
-              .map(({ t, a, q }) => (t === 'a' ? (
+              .map(({ k, a, q }) => (k === 'a' ? (
                 <Link to={`/assignments/${a._id}`} className="item-row" key={a._id}>
-                  <span className={`item-code ${a.kind === 'lesson' ? 'lesson' : ''}`}>{a.kind === 'lesson' ? <><PlayCircle size={12} /> Lesson</> : a.code}</span>
+                  <span className={`item-code ${a.kind === 'lesson' ? 'lesson' : ''}`}>{a.kind === 'lesson' ? <><PlayCircle size={12} /> {t('Lesson')}</> : a.code}</span>
                   <span className="item-title">{a.title}</span>
-                  {a.videos?.length > 0 && a.kind !== 'lesson' && <span className="small muted row" style={{ gap: 4 }} title="Includes video"><Video size={14} /></span>}
-                  {a.attachmentCount > 0 && <span className="small muted row" style={{ gap: 3 }} title={`${a.attachmentCount} resource file(s)`}><Paperclip size={14} />{a.attachmentCount}</span>}
+                  {a.videos?.length > 0 && a.kind !== 'lesson' && <span className="small muted row" style={{ gap: 4 }} title={t('Includes video')}><Video size={14} /></span>}
+                  {a.attachmentCount > 0 && <span className="small muted row" style={{ gap: 3 }} title={t('{n} resource file(s)', { n: a.attachmentCount })}><Paperclip size={14} />{a.attachmentCount}</span>}
                   {a.meta?.estimatedHours && <span className="small muted">{a.meta.estimatedHours} h</span>}
-                  {isEmployee ? (a.kind !== 'lesson' && <StatusChip status={a.mySubmission?.status} />) : !a.isPublished && <span className="chip">Draft</span>}
-                  {a.dueAt && <span className="small muted">Due {fmtDate(a.dueAt)}</span>}
+                  {isEmployee ? (a.kind !== 'lesson' && <StatusChip status={a.mySubmission?.status} />) : !a.isPublished && <span className="chip">{t('Draft')}</span>}
+                  {a.dueAt && <span className="small muted">{t('Due {date}', { date: fmtDate(a.dueAt) })}</span>}
                 </Link>
               ) : (
                 <Link to={`/quizzes/${q._id}`} className="item-row" key={q._id}>
-                  <span className="item-code quiz"><ListChecks size={12} /> Quiz</span>
+                  <span className="item-code quiz"><ListChecks size={12} /> {t('Quiz')}</span>
                   <span className="item-title">{q.title}</span>
-                  <span className="small muted">{q.questionCount} questions</span>
+                  <span className="small muted">{t('{n} questions', { n: q.questionCount })}</span>
                   {isEmployee
-                    ? q.myBest ? <span className={`chip ${q.myBest.passed ? 'chip-ok' : 'chip-danger'}`}>{q.myBest.passed ? 'Passed' : 'Not passed'} · {q.myBest.score}%</span> : <span className="chip">Not started</span>
-                    : !q.isPublished && <span className="chip">Draft</span>}
+                    ? q.myBest ? <span className={`chip ${q.myBest.passed ? 'chip-ok' : 'chip-danger'}`}>{q.myBest.passed ? t('Passed') : t('Not passed')} · {q.myBest.score}%</span> : <span className="chip">{t('Not started')}</span>
+                    : !q.isPublished && <span className="chip">{t('Draft')}</span>}
                 </Link>
               )))}
             {data.canEdit && (
@@ -153,7 +159,7 @@ export default function CourseDetail() {
                 <Link to={`/courses/${course._id}/quizzes/new?milestone=${m._id}`} className="btn btn-ghost btn-sm"><ListChecks size={15} /> Quiz</Link>
               </div>
             )}
-            {!items.length && !quizzes.length && !data.canEdit && <div className="item-row muted small">Nothing here yet.</div>}
+            {!items.length && !quizzes.length && !data.canEdit && <div className="item-row muted small">{t('Nothing here yet.')}</div>}
           </details>
         );
       })}

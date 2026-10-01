@@ -46,7 +46,8 @@ function runPrechecks({ assignment, text, peers = [] }) {
   const flags = [];
   const wc = words(text).length;
   if (wc < 60) flags.push({ kind: 'too_short', severity: 'high', message: `Only ${wc} readable words — the file may be empty, scanned or mostly images.` });
-  if (/binary file|Could not extract text/.test(text)) flags.push({ kind: 'unreadable_file', severity: 'warn', message: 'At least one file could not be read as text — check it manually.' });
+  if (/not machine-readable|Could not extract text/.test(text)) flags.push({ kind: 'unreadable_file', severity: 'warn', message: 'At least one file could not be read as text — open it in the viewer.' });
+  if (/looks scanned or made of screenshots/.test(text)) flags.push({ kind: 'scanned_pdf', severity: 'warn', message: 'A PDF has almost no selectable text (scanned or screenshots) — the AI can only grade the text it can read.' });
   if (INJECTION.test(text)) flags.push({ kind: 'prompt_injection_attempt', severity: 'high', message: 'The submission contains text that tries to instruct the AI grader.' });
 
   // Did the student address each task? (task title keywords present in the text)
@@ -54,7 +55,10 @@ function runPrechecks({ assignment, text, peers = [] }) {
   const tasks = (assignment.tasks || []).map((task) => {
     const keys = keyTokens(task.title);
     const hit = keys.filter((k) => t.includes(` ${k}`)).length;
-    return { title: task.title, covered: !keys.length || hit / keys.length >= 0.5 };
+    const bulletKeys = keyTokens((task.bullets || []).join(' ')).slice(0, 25);
+    const bulletHit = bulletKeys.filter((k) => t.includes(` ${k}`)).length;
+    // covered when most title words appear, or the student clearly worked through the task's bullet points
+    return { title: task.title, covered: !keys.length || hit / keys.length >= 0.5 || (bulletKeys.length >= 4 && bulletHit / bulletKeys.length >= 0.5) };
   });
   const missing = tasks.filter((x) => !x.covered);
   if (missing.length) flags.push({ kind: 'tasks_possibly_missing', severity: 'warn', message: `No clear section for: ${missing.map((m) => m.title).join('; ')}` });
@@ -92,4 +96,4 @@ function quoteFound(quote, text) {
   return (q.length > 60 && (t.includes(q.slice(0, 60)) || t.includes(q.slice(-60))));
 }
 
-module.exports = { runPrechecks, fingerprint, similarity, quoteFound, norm };
+module.exports = { runPrechecks, fingerprint, similarity, quoteFound, norm, keyTokens, words };

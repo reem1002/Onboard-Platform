@@ -19,6 +19,11 @@ const CATEGORY = {
   seat_limit_reached: 'team',
   seats_changed: 'team',
   report_shared: 'team',
+  certificate_issued: 'grades',
+  quiz_extra_attempt: 'grades',
+  due_soon: 'reminders',
+  overdue: 'reminders',
+  review_waiting: 'reminders',
 };
 
 const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));

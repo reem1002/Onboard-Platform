@@ -63,3 +63,6 @@ export function uploadWithProgress(url, formData, onProgress) {
   });
   return { promise, cancel: () => ctrl.abort() };
 }
+
+/** Generic authenticated download (exports, certificates…) */
+export const downloadFile = (url, fallbackName) => saveBlob(url, fallbackName);

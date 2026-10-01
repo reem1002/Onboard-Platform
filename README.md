@@ -8,7 +8,7 @@ dashboards for company admins, instructors and employees.
 ## What's in the platform
 
 - **Structured assignments** (brief, tasks, callouts, rubric) with **videos** (YouTube, Vimeo, Loom, Google Drive, .mp4) and **lesson** items (watch/read, nothing to submit).
-- **Milestone quizzes**: single/multiple-answer and true/false, auto-graded on the server, with pass mark, attempt limit and explanations shown after submitting.
+- **Milestone quizzes**: single/multiple-answer and true/false, auto-graded on the server, with pass mark, attempt limit and explanations shown after submitting. Optional **time limit** (server-side timer, auto-submit, survives page reloads), **shuffled** questions/options, a **results page** (who passed, question-by-question analysis) and **“Allow another try”** for employees out of attempts.
 - **AI draft grading → instructor approval**, feedback sheet on screen and as Word.
 - **Employee progress reports** (Word) in the on-the-job training format: executive summary, overview, milestone progress bars, job-description alignment, skills with grades & assessor evidence, highlights & development focus, business value, next steps. Narrative is editable and can be drafted by AI.
 - **Support**: employees ask their course instructor or platform support; company admins contact platform support; the platform admin monitors every ticket with response-time stats.
@@ -23,6 +23,12 @@ dashboards for company admins, instructors and employees.
 - **Email notifications**: every in-app notification can also be emailed (branded HTML + deep link). Users choose categories in Account settings; the platform admin has a master switch and a “send test email” button.
 - **Loading states**: skeleton placeholders shaped like each page, and a thin activity bar during requests.
 - **Seats**: each customer company has a purchased seat limit enforced on employee accounts.
+- **In-platform file viewer**: PDFs, images, Word (.docx, with its images), text/CSV/JSON/logs open inside the platform — instructors review submissions side-by-side with the grade, employees preview resources and their own uploads. Download is still one click away.
+- **Due-date reminders** (hourly job): course due in 3 days / 1 day / overdue (overdue also tells the company admin), assignment due in 2 days / overdue, and a daily nudge to instructors when work waits > 48 h. Each reminder is sent once. Users can turn them off under Account settings → Email notifications.
+- **Certificates**: issued automatically when an employee completes every graded item of a course (PDF with QR code). Anyone can check one at `/verify/<code>`; the platform admin can revoke.
+- **Company branding**: the company admin (or platform admin) uploads a logo and picks an accent colour (with a contrast check); it is applied to that company's users, PDFs and exports.
+- **Arabic / RTL**: EN ⇄ عربي toggle (top bar and sign-in page), saved per account. Employee-facing pages are translated; staff-only pages and course content stay in English for now.
+- **Exports**: team progress as **CSV** or **PDF** (Team progress page) and a course **gradebook CSV** (course page). CSV opens in Excel with Arabic names intact and is protected against formula injection.
 
 ## Roles
 
@@ -122,10 +128,12 @@ npm run user -- demo-passwords "Demo-Pass-2026"                          # dev o
 The AI only drafts; an instructor approves every grade.
 
 1. Install Ollama for Windows: https://ollama.com/download (runs in the background on port 11434, `OLLAMA_URL`).
-2. Download a model once: `ollama pull qwen2.5:7b` (~4.7 GB; fits a 4–8 GB graphics card + 16 GB RAM).
+2. Download a model once: `ollama pull qwen2.5:7b` (~4.7 GB; fits a 4–8 GB graphics card + 16 GB RAM) — or `qwen2.5:3b` (~1.9 GB) on a smaller laptop.
 3. In the app: **Settings → AI grading → In-house (free)**, pick the model, Save. The status dot turns green when Ollama is reachable.
 
 How a draft is made:
+- **Reading files:** PDF, Word, text/CSV. Scanned PDFs / screenshots-only files are flagged. Long submissions are not cut off: for each criterion the most relevant paragraphs are sent to the model, and quotes are checked against the whole document.
+- **Unreadable submissions skip the AI** (fewer than 60 readable words): the instructor is told to grade it with the file viewer instead of getting an invented draft.
 - **Automatic checks (no AI):** very little text, unreadable files, text that tries to instruct the AI, tasks with no matching section, text copied from the brief, similarity to a colleague's submission (MinHash fingerprints).
 - **Criterion by criterion:** the model grades one rubric criterion at a time and must quote the submission. Quotes are verified; invented quotes are dropped and a high score with no real quote is flagged.
 - **Optional repeated runs** — the median is kept and big disagreements are flagged.
@@ -150,6 +158,10 @@ If Ollama is off, the submission falls back to manual grading and instructors ar
    ```
 4. Restart the server, then Settings → “Send me a test email”. Gmail allows roughly 500 emails a day — fine for testing; use a transactional provider (Brevo, Resend, Amazon SES…) with your own domain in production.
 
+## Rate limits (why a refresh is never needed)
+
+API requests are limited per signed-in user (1,500 / 15 min in production, much higher in development), not per IP — so several accounts tested from one laptop no longer share a budget. Sign-in counts only *failed* attempts (20 / 15 min per IP + email). Token refresh has its own generous limit. A limited request returns a clear JSON message instead of “something went wrong”.
+
 ## Production notes
 
 - Serve the client build and API behind one reverse proxy (same origin) over HTTPS; `NODE_ENV=production` turns on `Secure` cookies.
@@ -159,8 +171,6 @@ If Ollama is off, the submission falls back to manual grading and instructors ar
 ## Next phases (suggested)
 
 1. Importer: pull existing Moodle assignments (all SOC/CSS/GRC items) into the structured format.
-2. Quizzes (milestone quizzes) with auto-grading.
-3. Notifications (email) for due dates, returned work, and approvals.
-4. Per-company branding (logo + accent colour) and Arabic/RTL toggle — the CSS is already RTL-ready.
-5. Certificates on course completion; reports export (CSV/PDF).
-6. MFA (TOTP) for admins and instructors.
+2. MFA (TOTP) for admins and instructors.
+3. Translate staff pages (review, editors, settings) and server notification texts to Arabic.
+4. OCR for scanned PDFs / screenshots before AI grading.

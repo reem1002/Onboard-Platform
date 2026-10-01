@@ -3,6 +3,12 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import './styles/global.css';
 import { AuthProvider, useAuth, can } from './context/AuthContext';
+import { BrandingProvider } from './context/BrandingContext';
+import { I18nProvider } from './lib/i18n';
+import QuizResults from './pages/QuizResults';
+import Certificates from './pages/Certificates';
+import Verify from './pages/Verify';
+import BrandingEditor from './pages/BrandingEditor';
 import Layout from './components/Layout';
 import { PageSkeleton, Skeleton } from './components/ui';
 import Login from './pages/Login';
@@ -32,7 +38,7 @@ import Profile from './pages/Profile';
 import SharedReports from './pages/SharedReports';
 
 function Protected({ children, allow }) {
-  const { user, booting } = useAuth();
+  const { user, booting, signedOut } = useAuth();
   const loc = useLocation();
   if (booting) return (
     <div className="boot-shell" role="status" aria-label="Loading">
@@ -40,7 +46,7 @@ function Protected({ children, allow }) {
       <main><PageSkeleton variant="dashboard" /></main>
     </div>
   );
-  if (!user) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  if (!user) return <Navigate to="/login" replace state={signedOut ? undefined : { from: loc.pathname + loc.search }} />;
   // Admin-created accounts must pick their own password before anything else
   if (user.mustChangePassword) return <ForceChangePassword />;
   // Client-side gating is UX only — the API enforces every permission server-side.
@@ -52,15 +58,22 @@ function Protected({ children, allow }) {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
+      <I18nProvider>
       <AuthProvider>
+      <BrandingProvider>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/verify/:code" element={<Verify />} />
           <Route element={<Protected><Layout /></Protected>}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="profile" element={<Profile />} />
+            <Route path="certificates" element={<Certificates />} />
+            <Route path="quizzes/:id/results" element={<Protected allow={can.report}><QuizResults /></Protected>} />
+            <Route path="company/branding" element={<Protected allow={can.manageTeam}><BrandingEditor /></Protected>} />
+            <Route path="admin/companies/:id/branding" element={<Protected allow={can.admin}><BrandingEditor /></Protected>} />
             <Route path="reports/shared" element={<Protected allow={can.report}><SharedReports /></Protected>} />
             <Route path="courses" element={<Courses />} />
             <Route path="courses/:id" element={<CourseDetail />} />
@@ -85,7 +98,9 @@ createRoot(document.getElementById('root')).render(
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+      </BrandingProvider>
       </AuthProvider>
+      </I18nProvider>
     </BrowserRouter>
   </StrictMode>
 );

@@ -121,6 +121,20 @@ router.get(
   })
 );
 
+/* In-app preview (docx → HTML, text → text; pdf/images are shown from the original file) */
+router.get(
+  '/:id/files/:index/preview',
+  validate({ params: z.object({ id: objectId, index: z.coerce.number().int().min(0).max(9) }) }),
+  asyncHandler(async (req, res) => {
+    const sub = await loadSubmission(req.user, req.params.id);
+    const file = sub.files[req.params.index];
+    if (!file) throw new AppError(404, 'Not found');
+    const { buildPreview } = require('../services/preview');
+    res.setHeader('Cache-Control', 'private, no-store');
+    res.json({ name: file.originalName, size: file.size, ...(await buildPreview(file)) });
+  })
+);
+
 /* Instructor decision: approve AI draft (optionally edited) or return for rework */
 router.post(
   '/:id/review',
@@ -188,19 +202,8 @@ router.post(
       ? { type: 'graded', title: `${assignment.code} graded: ${sub.final.totalScore}/${assignment.maxScore}`, body: assignment.title, link: `/feedback/${sub._id}` }
       : { type: 'returned', title: `${assignment.code} returned for rework`, body: 'Read the feedback and resubmit when ready.', link: `/assignments/${assignment._id}` });
     if (req.body.decision === 'approve') {
-      // Did this finish the course? Tell the employee's company admins.
-      const Course = require('../models/Course');
-      const User = require('../models/User');
-      const { courseProgress } = require('../services/progress');
-      const c = await Course.findById(sub.course);
-      const p = await courseProgress(c, sub.student);
-      if (p.total && p.completed === p.total) {
-        const u = await User.findById(sub.student).select('name');
-        await notify(await companyAdmins(sub.company), {
-          type: 'employee_completed', title: `${u.name} completed ${c.code}`, body: `Average grade ${p.avgScore ?? '—'}%`,
-          link: `/reports?student=${sub.student}&course=${c._id}`,
-        });
-      }
+      // Last item done → certificate (also tells the company admins)
+      await require('../services/certificates').maybeIssue(sub.student, sub.course).catch((e) => console.error('certificate failed', e.message));
     }
     await audit(req, `grade.${req.body.decision}`, { target: String(sub._id), meta: { total: sub.final.totalScore, acceptedAiAsIs } });
     res.json({ submission: sub });

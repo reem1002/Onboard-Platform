@@ -4,7 +4,7 @@ const RefreshToken = require('../models/RefreshToken');
 const { audit } = require('../models/AuditLog');
 const validate = require('../middleware/validate');
 const { requireAuth } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/security');
+const { authLimiter, loginLimiter, refreshLimiter } = require('../middleware/security');
 const { asyncHandler, AppError } = require('../utils/errors');
 const { z, email, password } = require('../utils/schemas');
 const t = require('../utils/tokens');
@@ -26,7 +26,7 @@ async function startSession(req, res, user, persistent) {
 
 router.post(
   '/login',
-  authLimiter,
+  loginLimiter,
   validate({ body: z.object({ email, password: z.string().min(1).max(128), rememberMe: z.boolean().default(false) }) }),
   asyncHandler(async (req, res) => {
     const { email: mail, password: pwd, rememberMe } = req.body;
@@ -61,7 +61,7 @@ router.post(
 
 router.post(
   '/refresh',
-  authLimiter,
+  refreshLimiter,
   asyncHandler(async (req, res) => {
     try {
       const { user, raw, persistent } = await t.rotateRefreshToken(req.cookies[t.REFRESH_COOKIE], meta(req));
@@ -192,13 +192,15 @@ router.patch(
   validate({
     body: z.object({
       theme: z.enum(['default', 'light', 'dark', 'system']).optional(),
+      language: z.enum(['en', 'ar']).optional(),
       email: z.object({
-        enabled: z.boolean(), grades: z.boolean(), courses: z.boolean(), support: z.boolean(), reviews: z.boolean(), team: z.boolean(),
+        enabled: z.boolean(), grades: z.boolean(), courses: z.boolean(), support: z.boolean(), reviews: z.boolean(), team: z.boolean(), reminders: z.boolean(),
       }).partial().optional(),
     }),
   }),
   asyncHandler(async (req, res) => {
     if (req.body.theme) req.user.set('preferences.theme', req.body.theme);
+    if (req.body.language) req.user.set('preferences.language', req.body.language);
     for (const [k, v] of Object.entries(req.body.email || {})) req.user.set(`preferences.email.${k}`, v);
     await req.user.save();
     res.json({ user: req.user.toJSON() });

@@ -843,3 +843,83 @@ pre.cmd { background: var(--note); border-radius: var(--radius-s); padding: 10px
 .setup-steps { background: var(--app); border: 1px solid var(--line); border-radius: var(--radius-m); padding: var(--sp-3); }
 .setup-steps summary { cursor: pointer; }
 .setup-steps ol { margin: 10px 0 6px; padding-inline-start: 1.3em; display: flex; flex-direction: column; gap: 8px; }
+
+/* =================== File viewer =================== */
+.viewer { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; display: flex; flex-direction: column; }
+.viewer-full { position: fixed; inset: 8px; z-index: 70; box-shadow: var(--shadow-l); }
+.viewer-full .viewer-body { flex: 1; height: auto !important; }
+.viewer-bar { display: flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; border-bottom: 1px solid var(--line); background: var(--app); min-height: 48px; }
+.viewer-name { font-size: var(--fs-sm); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.viewer-tabs { display: flex; gap: 4px; overflow-x: auto; min-width: 0; }
+.viewer-tabs button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: var(--fs-xs); font-weight: 600; cursor: pointer; white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis; color: var(--ink-2); }
+.viewer-tabs button.on { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.viewer-body { position: relative; background: #f3f3f3; min-height: 240px; }
+:root[data-theme='dark'] .viewer-body { background: #111; }
+.viewer-frame { width: 100%; height: 100%; border: 0; display: block; background: #fff; }
+.viewer-img { height: 100%; overflow: auto; display: grid; place-items: center; padding: 16px; }
+.viewer-img img { max-width: 100%; height: auto; box-shadow: var(--shadow-l); border-radius: 6px; background: #fff; }
+.viewer-text { height: 100%; overflow: auto; margin: 0; padding: 16px; font-size: 13px; line-height: 1.5; background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, Consolas, monospace; }
+.viewer-csv { border-collapse: collapse; font-family: var(--font); font-size: 13px; }
+.viewer-csv td, .viewer-csv th { border: 1px solid var(--line); padding: 4px 8px; text-align: start; white-space: nowrap; }
+.viewer-csv th { background: var(--app); position: sticky; top: -16px; }
+.viewer-none { height: 100%; display: grid; place-content: center; justify-items: center; gap: 10px; text-align: center; color: var(--ink-2); padding: 24px; background: var(--surface); }
+.viewer-modal { width: min(1100px, 100%); }
+.file-row { display: flex; align-items: center; gap: 4px; }
+.file-row .file-link { flex: 1; min-width: 0; }
+.attach-item { padding: 4px 4px 4px 10px; cursor: default; }
+.attach-open { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; border: 0; background: transparent; text-align: start; cursor: pointer; padding: 4px 0; color: inherit; }
+.attach-open:hover .attach-name { text-decoration: underline; }
+@media (max-width: 600px) { .hide-sm { display: none; } }
+
+/* =================== Certificates & quiz results =================== */
+.cert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr)); gap: var(--sp-3); }
+.cert-card { display: flex; flex-direction: column; gap: 8px; padding: var(--sp-4); border-radius: var(--radius-l); background: var(--surface); border: 1px solid var(--line); position: relative; overflow: hidden; }
+.cert-card::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 6px; background: var(--accent); }
+.cert-card.revoked { opacity: 0.6; }
+.cert-icon { color: var(--peach-strong); }
+.verify-wrap { min-height: 100dvh; display: grid; place-items: center; background: var(--paper); padding: var(--sp-3); }
+.verify-card { max-width: 560px; width: 100%; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: var(--sp-5); }
+.text-ok { color: var(--ok); }
+.quiz-start { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3); background: var(--lavender); border-color: transparent; }
+.quiz-timer { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 4px 10px; border-radius: 999px; background: var(--note); }
+.quiz-timer.low { background: var(--pink); color: var(--pink-ink); }
+.qa-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.qa-item { padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
+.qa-item:last-child { border-bottom: 0; }
+.hbar-track > span.right { background: var(--mint-strong); }
+
+/* =================== Company branding =================== */
+.logo-box { height: 96px; border: 1px dashed var(--line-strong); border-radius: var(--radius-m); display: grid; place-items: center; background: var(--app); padding: 10px; }
+.logo-box img { max-height: 76px; max-width: 100%; object-fit: contain; }
+.swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--line-strong); cursor: pointer; padding: 0; }
+.swatch.on { box-shadow: 0 0 0 2px var(--ink); }
+.color-input { width: 44px; height: 40px; padding: 0; border: 1px solid var(--line-strong); border-radius: 10px; background: none; cursor: pointer; }
+.brand-preview { border: 1px solid var(--line); border-radius: var(--radius-m); padding: var(--sp-3); display: flex; flex-direction: column; gap: 10px; background: var(--app); }
+.pill-preview { background: var(--accent); color: var(--accent-ink); padding: 6px 14px; border-radius: 999px; font-weight: 600; font-size: var(--fs-sm); }
+.brand-preview .progress > span, .branded .progress:not(.ok) > span { background: var(--accent); }
+.branded .nav a.active { background: var(--accent); color: var(--accent-ink); }
+.branded .brand-mark { background: var(--accent); color: var(--accent-ink); }
+.brand-logo { max-height: 34px; max-width: 150px; object-fit: contain; }
+.shell.collapsed .brand-logo { max-width: 40px; }
+
+/* ── Language toggle & right-to-left ─────────────────────────────── */
+.auth-form { position: relative; }
+.auth-lang { position: absolute; inset-block-start: 14px; inset-inline-end: 14px; }
+.lang-btn { gap: 6px; font-weight: 600; }
+.lang-btn span[lang='ar'] { font-size: 0.95rem; }
+.label-like { display: block; font-weight: 600; font-size: var(--fs-sm); margin-bottom: 6px; }
+html[lang='ar'] body { font-family: 'Segoe UI', Tahoma, 'Noto Sans Arabic', Arial, sans-serif; }
+html[lang='ar'] .auth-art h1 { text-transform: none; letter-spacing: 0; line-height: 1.2; }
+html[lang='ar'] .eyebrow, html[lang='ar'] .code { letter-spacing: 0; }
+/* Directional icons point the other way in RTL */
+[dir='rtl'] .lucide-arrow-left, [dir='rtl'] .lucide-arrow-right, [dir='rtl'] .lucide-chevron-right, [dir='rtl'] .lucide-chevron-left,
+[dir='rtl'] .lucide-panel-left-close, [dir='rtl'] .lucide-panel-left-open, [dir='rtl'] .lucide-log-out { transform: scaleX(-1); }
+[dir='rtl'] details[open] > summary .caret { transform: rotate(90deg); }
+/* Codes, emails, file names and numbers stay left-to-right inside Arabic text */
+[dir='rtl'] .item-code, [dir='rtl'] .code, [dir='rtl'] input[type='email'], [dir='rtl'] .viewer-name { unicode-bidi: plaintext; }
+/* Course content is written in English: let each paragraph pick its own direction so punctuation lands in the right place */
+html[dir='rtl'] :where(h1, h2, h3, h4, p, li, dd, td, figcaption, figcaption *, .item-title, .milestone > summary > span, .quiz-opt > span, .quiz-prompt, .callout-head, .stat-hint) { unicode-bidi: plaintext; }
+/* Absolute 'right' (not 'start') is inherited, so English paragraphs still line up with the Arabic layout; centred blocks keep their centring */
+html[dir='rtl'] body { text-align: right; }
+/* Letter-spacing breaks Arabic letter joining */
+html[lang='ar'] :is(h1, h2, h3, .h-card, .nav a, .btn, .chip, .stat span, dt, label, .label) { letter-spacing: 0 !important; }

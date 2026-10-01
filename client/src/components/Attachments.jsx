@@ -3,6 +3,8 @@ import { Download, FileArchive, FileImage, FileSpreadsheet, FileText, Paperclip,
 import { api, errorMessage } from '../api/client';
 import { downloadAttachment, uploadWithProgress } from '../api/files';
 import { ErrorBox, UploadProgress, fmtBytes } from './ui';
+import { FileViewerModal } from './FileViewer';
+import { useT } from '../lib/i18n';
 
 export const ATTACHMENT_TYPES = ['pdf', 'docx', 'xlsx', 'pptx', 'zip', 'png', 'jpg', 'jpeg', 'pcap', 'pcapng', 'txt', 'csv', 'json', 'log', 'md'];
 const ext = (n = '') => n.split('.').pop().toLowerCase();
@@ -17,23 +19,28 @@ function FileIcon({ name }) {
 
 /** Read-only list shown to employees (and staff) on the assignment page. */
 export function AttachmentList({ assignment }) {
+  const t = useT();
   const [err, setErr] = useState('');
+  const [view, setView] = useState(null);
   if (!assignment.attachments?.length) return null;
   return (
     <div className="card stack">
-      <div className="row"><Paperclip size={16} /><h3>Resources</h3><span className="spacer" /><span className="small muted">{assignment.attachments.length} file{assignment.attachments.length > 1 ? 's' : ''}</span></div>
+      <div className="row"><Paperclip size={16} /><h3>{t('Resources')}</h3><span className="spacer" /><span className="small muted">{t('{n} file(s)', { n: assignment.attachments.length })}</span></div>
       <ErrorBox>{err}</ErrorBox>
       <ul className="attach-list">
         {assignment.attachments.map((f) => (
           <li key={f._id}>
-            <button className="attach-item" onClick={() => downloadAttachment(assignment._id, f._id, f.originalName).catch((e) => setErr(errorMessage(e, 'Download failed.')))} title={`Download ${f.originalName}`}>
-              <span className="attach-icon"><FileIcon name={f.originalName} /></span>
-              <span className="attach-name">{f.originalName}<span className="small muted">{fmtBytes(f.size)} · .{ext(f.originalName)}</span></span>
-              <Download size={15} />
-            </button>
+            <div className="attach-item">
+              <button className="attach-open" onClick={() => setView(assignment.attachments.indexOf(f))} title={`View ${f.originalName}`}>
+                <span className="attach-icon"><FileIcon name={f.originalName} /></span>
+                <span className="attach-name">{f.originalName}<span className="small muted">{fmtBytes(f.size)} · .{ext(f.originalName)}</span></span>
+              </button>
+              <button className="btn btn-ghost icon-btn" aria-label={t('Download {x}', { x: f.originalName })} title={t('Download')} onClick={() => downloadAttachment(assignment._id, f._id, f.originalName).catch((e) => setErr(errorMessage(e, t('Download failed.'))))}><Download size={15} /></button>
+            </div>
           </li>
         ))}
       </ul>
+      {view !== null && <FileViewerModal open onClose={() => setView(null)} files={assignment.attachments} source={{ type: 'attachment', assignmentId: assignment._id }} initial={view} />}
     </div>
   );
 }
