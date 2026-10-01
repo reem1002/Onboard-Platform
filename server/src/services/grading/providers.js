@@ -38,7 +38,7 @@ function ollamaProvider({ model, numCtx = 8192, timeoutMs = 15 * 60 * 1000 }) {
           stream: false,
           format: schema,
           keep_alive: '10m',
-          options: { temperature, num_ctx: numCtx, num_predict: maxTokens, repeat_penalty: repeatPenalty, repeat_last_n: 128 },
+          options: { temperature, seed: 42, num_ctx: numCtx, num_predict: maxTokens, repeat_penalty: repeatPenalty, repeat_last_n: 128 },
           messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }],
         }),
       });

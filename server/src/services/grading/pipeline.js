@@ -120,7 +120,7 @@ Grade ONLY the criterion "${criterion.criterion}". Return JSON with evidence, sc
 
   const results = [];
   for (let i = 0; i < runs; i += 1) {
-    const out = await provider.complete({ system: CRITERION_SYSTEM, prompt, schema: CRITERION_SCHEMA, name: 'grade_criterion', temperature: i === 0 ? 0.1 : 0.5 });
+    const out = await provider.complete({ system: CRITERION_SYSTEM, prompt, schema: CRITERION_SCHEMA, name: 'grade_criterion', temperature: i === 0 ? 0 : 0.5 });
     const evidence = (Array.isArray(out.evidence) ? out.evidence : []).map((q) => String(q).slice(0, 400)).filter(Boolean).slice(0, 3);
     results.push({ score: clamp(out.score), comment: String(out.comment || '').slice(0, 500), evidence });
   }
